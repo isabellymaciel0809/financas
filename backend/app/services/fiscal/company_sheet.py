@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -29,6 +28,7 @@ from app.routers.dashboard import month_range
 from app.services.fiscal.importer_utils import parse_cell_amount, parse_cell_date
 from app.services.fiscal.items import categorize_items
 from app.services.fiscal.processor import upsert_supplier
+from app.services.fiscal.sheet_formats import SheetFormatError, open_workbook
 from app.services.text import simplify
 
 # Nome normalizado do cabeçalho -> campo. simplify("Valor (R$)") == "valor r".
@@ -47,10 +47,6 @@ REQUIRED = {"date", "description", "value"}
 MAX_HEADER_SCAN = 20
 # Formato para células novas quando a planilha não tem uma linha anterior para copiar.
 DEFAULT_FORMATS = {"date": "DD/MM/YYYY", "month": "MMM/YY", "value": "#,##0.00"}
-
-
-class SheetFormatError(ValueError):
-    pass
 
 
 @dataclass
@@ -209,10 +205,10 @@ def match_key(day: date, description: str, cents: int) -> tuple:
 # --- importar --------------------------------------------------------------------------------
 
 
-def import_sheet(db: Session, content: bytes) -> ImportReport:
+def import_sheet(db: Session, content: bytes, filename: str = "planilha.xlsx") -> ImportReport:
     # data_only: lê o RESULTADO das fórmulas (ex.: Valor = D5*E5), salvo pelo Excel no arquivo.
-    table = find_table(_open(content, data_only=True))
-    rows, skipped = read_rows(table, formulas=find_table(_open(content)))
+    table = find_table(open_workbook(filename, content, data_only=True))
+    rows, skipped = read_rows(table, formulas=find_table(open_workbook(filename, content)))
     report = ImportReport(
         sheet=table.ws.title,
         skipped=len(skipped),
@@ -298,11 +294,13 @@ class UpdateReport:
     already_in_sheet: int
 
 
-def update_sheet(db: Session, content: bytes, month: str | None = None) -> UpdateReport:
+def update_sheet(
+    db: Session, content: bytes, month: str | None = None, filename: str = "planilha.xlsx"
+) -> UpdateReport:
     # Duas leituras do mesmo arquivo: uma com os resultados das fórmulas (para comparar valores)
     # e outra com as fórmulas intactas (é nela que escrevemos, para não estragar a planilha).
-    values_table = find_table(_open(content, data_only=True))
-    workbook = _open(content)
+    values_table = find_table(open_workbook(filename, content, data_only=True))
+    workbook = open_workbook(filename, content)
     table = find_table(workbook)
     existing_rows, _ = read_rows(values_table)
     existing = Counter(match_key(r.date, r.description, r.cents) for r in existing_rows)
@@ -357,13 +355,6 @@ def update_sheet(db: Session, content: bytes, month: str | None = None) -> Updat
     buffer = io.BytesIO()
     workbook.save(buffer)
     return UpdateReport(buffer.getvalue(), ws.title, len(to_add), already)
-
-
-def _open(content: bytes, data_only: bool = False):
-    try:
-        return load_workbook(io.BytesIO(content), data_only=data_only)
-    except Exception as exc:
-        raise SheetFormatError("Arquivo inválido: envie a planilha em formato .xlsx.") from exc
 
 
 def _has_content_below(ws: Worksheet, row: int) -> bool:

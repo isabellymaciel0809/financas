@@ -8,6 +8,7 @@ alembic==1.20.1
 # Leitura de notas e cupons
 defusedxml==0.7.1
 openpyxl==3.1.5
+xlrd==2.0.2
 opencv-python==5.0.0.93
 rapidocr-onnxruntime==1.4.4
 zxing-cpp==3.1.1

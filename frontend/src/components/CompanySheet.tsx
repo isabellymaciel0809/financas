@@ -52,7 +52,7 @@ export default function CompanySheet({ notify, onClose }: { notify: Notify; onCl
       <p className="mb-4 text-sm text-slate-500">
         A planilha precisa ter as colunas <strong>Data</strong>, <strong>Descrição</strong> e <strong>Valor</strong>; Mês,
         Cliente/Fornecedor, Proposta e Tipo são usados quando existirem. O sistema encontra a tabela sozinho, mesmo com
-        título acima.
+        título acima. Aceita .xlsx, .xlsm (com macros), .xls (Excel antigo) e .csv.
       </p>
       <div className="grid gap-4 md:grid-cols-2">
         <div className={box}>
@@ -68,7 +68,7 @@ export default function CompanySheet({ notify, onClose }: { notify: Notify; onCl
             disabled={importSheet.isPending}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-emerald-300"
           >
-            <FileUp size={16} /> {importSheet.isPending ? "Carregando..." : "Escolher planilha (.xlsx)"}
+            <FileUp size={16} /> {importSheet.isPending ? "Carregando..." : "Escolher planilha (Excel ou CSV)"}
           </button>
           {imported && (
             <div className="space-y-2 text-xs text-slate-600">
@@ -98,7 +98,7 @@ export default function CompanySheet({ notify, onClose }: { notify: Notify; onCl
           <input
             ref={importInput}
             type="file"
-            accept=".xlsx"
+            accept=".xlsx,.xlsm,.xls,.csv"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -135,7 +135,7 @@ export default function CompanySheet({ notify, onClose }: { notify: Notify; onCl
           <input
             ref={updateInput}
             type="file"
-            accept=".xlsx"
+            accept=".xlsx,.xlsm,.xls,.csv"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];

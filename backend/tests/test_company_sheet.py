@@ -102,7 +102,7 @@ def test_planilha_sem_as_colunas(client):
     # A mensagem diz o que encontrou e o que falta, para dar para ajustar sem abrir o arquivo.
     assert "Nome, Idade" in detail
     assert "Faltam colunas de: Data, Descrição, Valor" in detail
-    assert _import(client, b"x", "planilha.csv").status_code == 415
+    assert _import(client, b"x", "planilha.ods").status_code == 415
 
 
 def test_atualiza_a_planilha_da_empresa_sem_repetir_linhas(client):
@@ -221,3 +221,59 @@ def test_atualizar_preserva_as_formulas_da_empresa(client):
     )
     ws = load_workbook(io.BytesIO(response.content))["Sheet"]
     assert [ws["E2"].value, ws["E3"].value, ws["E4"].value] == ["=C2*D2", "=C3*D3", "=C4*D4"]
+
+
+# --- outros formatos -------------------------------------------------------------------------
+
+
+def test_le_excel_antigo_xls(client):
+    import xlwt
+
+    book = xlwt.Workbook()
+    sheet = book.add_sheet("Controle")
+    date_style = xlwt.easyxf(num_format_str="DD/MM/YYYY")
+    for col, header in enumerate(["Data", "Cliente/Fornecedor", "Descrição", "Tipo", "Valor (R$)"]):
+        sheet.write(0, col, header)
+    sheet.write(1, 0, datetime(2026, 8, 3), date_style)
+    sheet.write(1, 1, "Frigelar")
+    sheet.write(1, 2, "Tubo de cobre")
+    sheet.write(1, 3, "Custo")
+    sheet.write(1, 4, 327.6)
+    buffer = io.BytesIO()
+    book.save(buffer)
+
+    result = _import(client, buffer.getvalue(), "controle-antigo.xls").json()
+    assert result["imported"] == 1
+    item = client.get("/api/expenses/items").json()["items"][0]
+    assert (item["issue_date"], item["counterpart"], item["total_cents"]) == (
+        "2026-08-03",
+        "Frigelar",
+        32760,
+    )
+
+    # Atualizar um .xls devolve .xlsx (o formato antigo não é regravado).
+    xls_file = {"file": ("controle-antigo.xls", buffer.getvalue())}
+    response = client.post("/api/expenses/spreadsheet/update", files=xls_file)
+    assert "controle-antigo-atualizada.xlsx" in response.headers["content-disposition"]
+
+
+def test_le_csv_do_excel_brasileiro(client):
+    lines = [
+        "Data;Mês;Cliente/Fornecedor;Proposta;Descrição;Tipo;Valor (R$)",
+        "03/08/2026;ago/26;Frigelar;P-9;Fita isolante;Custo;1.234,56",
+        "04/08/2026;ago/26;Vivo;;Internet;Despesas;119,99",
+    ]
+    content = "\n".join(lines).encode("cp1252")  # como o Excel brasileiro salva
+    result = _import(client, content, "controle.csv").json()
+    assert result["imported"] == 2
+    totals = sorted(i["total_cents"] for i in client.get("/api/expenses/items").json()["items"])
+    assert totals == [11999, 123456]
+
+
+def test_xlsm_volta_como_xlsm(client):
+    response = client.post(
+        "/api/expenses/spreadsheet/update", files={"file": ("controle.xlsm", company_workbook())}
+    )
+    assert response.status_code == 200
+    assert "controle-atualizada.xlsm" in response.headers["content-disposition"]
+    assert "macroEnabled" in response.headers["content-type"]

@@ -44,12 +44,14 @@ from app.schemas import (
 )
 from app.services.categorizer.llm import LLMProvider
 from app.services.categorizer.pipeline import remember
-from app.services.fiscal.company_sheet import SheetFormatError, import_sheet, update_sheet
+from app.services.fiscal.company_sheet import import_sheet, update_sheet
 from app.services.fiscal.entry_types import INCOME_TYPES, default_entry_type
 from app.services.fiscal.export import build_items_workbook, build_workbook
 from app.services.fiscal.items import categorize_items
 from app.services.fiscal.items_report import ItemFilters, build_report, query_items, to_row
 from app.services.fiscal.processor import expense_queue, revalidate, upload_dir, upsert_supplier
+from app.services.fiscal.sheet_formats import SUPPORTED as SHEET_FORMATS
+from app.services.fiscal.sheet_formats import SheetFormatError, extension, output_format
 from app.services.text import merchant_key
 
 router = APIRouter(prefix="/expenses", tags=["lançamentos"])
@@ -181,9 +183,12 @@ def export(
     )
 
 
-async def _read_xlsx(file: UploadFile) -> bytes:
-    if not (file.filename or "").lower().endswith(".xlsx"):
-        raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Envie a planilha em .xlsx.")
+async def _read_sheet(file: UploadFile) -> bytes:
+    if extension(file.filename or "") not in SHEET_FORMATS:
+        raise HTTPException(
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            "Envie a planilha em .xlsx, .xlsm, .xls ou .csv.",
+        )
     limit = get_settings().max_upload_mb * 1024 * 1024
     content = await file.read(limit + 1)
     if len(content) > limit:
@@ -193,13 +198,13 @@ async def _read_xlsx(file: UploadFile) -> bytes:
 
 @router.post("/spreadsheet/import", response_model=SpreadsheetImportResult)
 async def import_company_sheet(
-    file: UploadFile = File(..., description="Planilha que a empresa já usa (.xlsx)"),
+    file: UploadFile = File(..., description="Planilha que a empresa já usa"),
     db: Session = Depends(get_db),
 ):
     """Carrega o histórico da planilha da empresa. Reimportar o mesmo arquivo não duplica."""
-    content = await _read_xlsx(file)
+    content = await _read_sheet(file)
     try:
-        report = import_sheet(db, content)
+        report = import_sheet(db, content, file.filename or "planilha.xlsx")
     except SheetFormatError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     return SpreadsheetImportResult(**asdict(report))
@@ -207,22 +212,27 @@ async def import_company_sheet(
 
 @router.post("/spreadsheet/update")
 async def update_company_sheet(
-    file: UploadFile = File(..., description="Planilha atual da empresa (.xlsx)"),
+    file: UploadFile = File(..., description="Planilha atual da empresa"),
     month: str | None = Form(None, pattern=r"^\d{4}-\d{2}$"),
     db: Session = Depends(get_db),
 ):
-    """Devolve a própria planilha da empresa com os lançamentos novos no fim da tabela."""
-    content = await _read_xlsx(file)
+    """Devolve a própria planilha da empresa com os lançamentos novos no fim da tabela.
+
+    .xlsx e .xlsm (com macros) voltam no mesmo formato; .xls e .csv voltam como .xlsx.
+    """
+    content = await _read_sheet(file)
+    filename = file.filename or "planilha.xlsx"
     try:
-        report = update_sheet(db, content, month)
+        report = update_sheet(db, content, month, filename)
     except SheetFormatError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    stem = Path(file.filename or "planilha").stem
+    suffix, media_type = output_format(filename)
+    stem = Path(filename).stem
     return Response(
         report.content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        media_type=media_type,
         headers={
-            "Content-Disposition": f'attachment; filename="{stem}-atualizada.xlsx"',
+            "Content-Disposition": f'attachment; filename="{stem}-atualizada{suffix}"',
             "X-Rows-Added": str(report.added),
             "X-Rows-Already-In-Sheet": str(report.already_in_sheet),
             "Access-Control-Expose-Headers": "X-Rows-Added, X-Rows-Already-In-Sheet",
