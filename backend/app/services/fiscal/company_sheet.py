@@ -79,6 +79,7 @@ class ImportReport:
     already_in_system: int = 0  # já lançadas no sistema (nota, cupom ou manual)
     skipped: int = 0
     skipped_rows: list[int] = field(default_factory=list)
+    skip_reasons: dict[str, int] = field(default_factory=dict)  # motivo -> quantas linhas
 
 
 FIELD_LABELS = {"date": "Data", "description": "Descrição", "value": "Valor"}
@@ -128,21 +129,57 @@ def _value(table: Table, row: int, key: str) -> Any:
     return table.ws.cell(row, col).value if col else None
 
 
-def read_rows(table: Table) -> tuple[list[SheetRow], list[int]]:
-    """Linhas válidas e números das linhas ignoradas (total, vazias com valor, inválidas)."""
-    rows, skipped = [], []
+def _is_formula(value: Any) -> bool:
+    return isinstance(value, str) and value.startswith("=")
+
+
+def skip_reason(raw_date: Any, raw_value: Any, description: Any) -> str | None:
+    """Por que uma linha não pode virar lançamento (None = linha válida)."""
+    if _is_formula(raw_date) or _is_formula(raw_value):
+        # Planilha salva sem o resultado das fórmulas (ex.: gerada por outro programa).
+        return "fórmula sem resultado salvo (abra e salve no Excel)"
+    if raw_date in (None, ""):
+        return "sem data"
+    if parse_cell_date(raw_date) is None:
+        return "data não reconhecida"
+    if raw_value in (None, ""):
+        return "sem valor"
+    if parse_cell_amount(raw_value) is None:
+        return "valor não reconhecido"
+    if not str(description or "").strip():
+        return "sem descrição"
+    return None
+
+
+def read_rows(
+    table: Table, formulas: Table | None = None
+) -> tuple[list[SheetRow], list[tuple[int, str]]]:
+    """Linhas válidas e linhas ignoradas com o motivo (total, preenchimento incompleto...).
+
+    `table` deve vir de uma leitura com os resultados das fórmulas. `formulas` (a mesma planilha
+    lida com as fórmulas) só serve para explicar células vazias que na verdade são fórmulas.
+    """
+    rows: list[SheetRow] = []
+    skipped: list[tuple[int, str]] = []
     for r in range(table.header_row + 1, table.ws.max_row + 1):
 
         def cell(key: str, r: int = r) -> Any:
-            return _value(table, r, key)
+            value = _value(table, r, key)
+            if value is None and formulas is not None and key in ("date", "value"):
+                original = _value(formulas, r, key)
+                if _is_formula(original):
+                    return original  # fórmula sem resultado salvo no arquivo
+            return value
 
         raw_date, raw_value, description = cell("date"), cell("value"), cell("description")
         if raw_date in (None, "") and raw_value in (None, "") and not description:
             continue  # linha vazia
-        parsed_date, cents = parse_cell_date(raw_date), parse_cell_amount(raw_value)
-        if parsed_date is None or cents is None or not str(description or "").strip():
-            skipped.append(r)  # ex.: linha de total ou preenchimento incompleto
+        reason = skip_reason(raw_date, raw_value, description)
+        if reason:
+            skipped.append((r, reason))
             continue
+        parsed_date, cents = parse_cell_date(raw_date), parse_cell_amount(raw_value)
+        assert parsed_date is not None and cents is not None  # garantido por skip_reason
         rows.append(
             SheetRow(
                 row=r,
@@ -173,9 +210,15 @@ def match_key(day: date, description: str, cents: int) -> tuple:
 
 
 def import_sheet(db: Session, content: bytes) -> ImportReport:
-    table = find_table(_open(content))
-    rows, skipped = read_rows(table)
-    report = ImportReport(sheet=table.ws.title, skipped=len(skipped), skipped_rows=skipped[:20])
+    # data_only: lê o RESULTADO das fórmulas (ex.: Valor = D5*E5), salvo pelo Excel no arquivo.
+    table = find_table(_open(content, data_only=True))
+    rows, skipped = read_rows(table, formulas=find_table(_open(content)))
+    report = ImportReport(
+        sheet=table.ws.title,
+        skipped=len(skipped),
+        skipped_rows=[r for r, _ in skipped[:20]],
+        skip_reasons=dict(Counter(reason for _, reason in skipped).most_common()),
+    )
 
     # Lançamentos feitos no sistema (nota, cupom, manual) que a planilha também pode conter,
     # por exemplo quando ela é o Excel exportado pelo próprio sistema.
@@ -222,9 +265,10 @@ def import_sheet(db: Session, content: bytes) -> ImportReport:
     db.commit()
     logger.info(
         'Planilha importada (aba "%s", cabeçalho na linha %d, colunas %s): %d linha(s) válida(s), '
-        "%d nova(s), %d já importada(s), %d já no sistema, %d ignorada(s) %s",
+        "%d nova(s), %d já importada(s), %d já no sistema, %d ignorada(s) %s, motivos: %s",
         report.sheet, table.header_row, sorted(table.columns), len(rows), report.imported,
         report.duplicates, report.already_in_system, report.skipped, report.skipped_rows,
+        report.skip_reasons,
     )  # fmt: skip
     return report
 
@@ -255,9 +299,12 @@ class UpdateReport:
 
 
 def update_sheet(db: Session, content: bytes, month: str | None = None) -> UpdateReport:
-    workbook = _open(content, keep_vba=False)
+    # Duas leituras do mesmo arquivo: uma com os resultados das fórmulas (para comparar valores)
+    # e outra com as fórmulas intactas (é nela que escrevemos, para não estragar a planilha).
+    values_table = find_table(_open(content, data_only=True))
+    workbook = _open(content)
     table = find_table(workbook)
-    existing_rows, _ = read_rows(table)
+    existing_rows, _ = read_rows(values_table)
     existing = Counter(match_key(r.date, r.description, r.cents) for r in existing_rows)
 
     query = (
@@ -312,9 +359,9 @@ def update_sheet(db: Session, content: bytes, month: str | None = None) -> Updat
     return UpdateReport(buffer.getvalue(), ws.title, len(to_add), already)
 
 
-def _open(content: bytes, keep_vba: bool = False):
+def _open(content: bytes, data_only: bool = False):
     try:
-        return load_workbook(io.BytesIO(content), keep_vba=keep_vba)
+        return load_workbook(io.BytesIO(content), data_only=data_only)
     except Exception as exc:
         raise SheetFormatError("Arquivo inválido: envie a planilha em formato .xlsx.") from exc
 

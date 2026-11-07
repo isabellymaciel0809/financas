@@ -1,6 +1,8 @@
 """Integração com a planilha que a empresa já usa: importar o histórico e atualizar o arquivo."""
 
 import io
+import re
+import zipfile
 from datetime import datetime
 
 from openpyxl import Workbook, load_workbook
@@ -65,6 +67,8 @@ def test_importa_historico_da_planilha(client):
         "already_in_system": 0,
         "skipped": 1,  # a linha de TOTAL
         "skipped_rows": [9],
+        # O openpyxl não salva o resultado das fórmulas; o Excel salvaria.
+        "skip_reasons": {"fórmula sem resultado salvo (abra e salve no Excel)": 1},
     }
     expenses = client.get("/api/expenses").json()
     assert all(e["status"] == "confirmed" and e["from_spreadsheet"] for e in expenses)
@@ -156,3 +160,64 @@ def test_importar_o_proprio_excel_exportado_nao_duplica(client):
     assert result["imported"] == 0
     assert result["already_in_system"] == 1
     assert len(client.get("/api/expenses").json()) == 1
+
+
+def saved_by_excel(content: bytes, cached: dict[str, str]) -> bytes:
+    """Simula um arquivo salvo pelo Excel: grava o resultado junto de cada fórmula."""
+    source = zipfile.ZipFile(io.BytesIO(content))
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as target:
+        for info in source.infolist():
+            data = source.read(info.filename)
+            if info.filename == "xl/worksheets/sheet1.xml":
+                xml = data.decode()
+                for ref, value in cached.items():
+                    xml = re.sub(
+                        rf'(<c r="{ref}"[^>]*>)(<f>[^<]*</f>)<v ?/>',
+                        rf"\g<1>\g<2><v>{value}</v>",
+                        xml,
+                    )
+                data = xml.encode()
+            target.writestr(info, data)
+    return output.getvalue()
+
+
+def formula_workbook() -> bytes:
+    """Valor calculado por fórmula (quantidade × unitário), como em muitas planilhas reais."""
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Data", "Descrição", "Qtd", "Unitário", "Valor (R$)"])
+    ws.append([datetime(2026, 9, 1), "Tubo de cobre", 2, 130, "=C2*D2"])
+    ws.append([datetime(2026, 9, 2), "Fita isolante", 3, 10, "=C3*D3"])
+    ws.append([datetime(2026, 9, 3), "Porca", 1, 5, "=C4*D4"])
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
+def test_valor_calculado_por_formula_usa_o_resultado_salvo(client):
+    # Excel salvou o resultado das duas primeiras; a terceira ficou sem (arquivo editado fora dele).
+    content = saved_by_excel(formula_workbook(), {"E2": "260", "E3": "30"})
+    result = _import(client, content).json()
+    assert result["imported"] == 2
+    assert result["skip_reasons"] == {"fórmula sem resultado salvo (abra e salve no Excel)": 1}
+    items = client.get("/api/expenses/items").json()["items"]
+    assert sorted(i["total_cents"] for i in items) == [3000, 26000]
+
+
+def test_atualizar_preserva_as_formulas_da_empresa(client):
+    content = saved_by_excel(formula_workbook(), {"E2": "260", "E3": "30", "E4": "5"})
+    client.post(
+        "/api/expenses",
+        json={
+            "issue_date": "2026-09-10",
+            "description": "Aluguel",
+            "items": [{"description": "Aluguel", "total_cents": 250000}],
+            "entry_type": "Despesas",
+        },
+    )
+    response = client.post(
+        "/api/expenses/spreadsheet/update", files={"file": ("controle.xlsx", content)}
+    )
+    ws = load_workbook(io.BytesIO(response.content))["Sheet"]
+    assert [ws["E2"].value, ws["E3"].value, ws["E4"].value] == ["=C2*D2", "=C3*D3", "=C4*D4"]

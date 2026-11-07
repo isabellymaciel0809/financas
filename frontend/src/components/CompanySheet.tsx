@@ -71,13 +71,29 @@ export default function CompanySheet({ notify, onClose }: { notify: Notify; onCl
             <FileUp size={16} /> {importSheet.isPending ? "Carregando..." : "Escolher planilha (.xlsx)"}
           </button>
           {imported && (
-            <p className="text-xs text-slate-600">
-              {imported.imported} carregada(s), {imported.duplicates} já importada(s) antes
-              {imported.already_in_system > 0 && `, ${imported.already_in_system} já lançada(s) no sistema`}
-              {imported.skipped > 0 &&
-                `, ${imported.skipped} ignorada(s) (linhas ${imported.skipped_rows.join(", ")}${imported.skipped > imported.skipped_rows.length ? "..." : ""}: total ou sem data/valor)`}
-              .
-            </p>
+            <div className="space-y-2 text-xs text-slate-600">
+              <p>
+                <strong>{imported.imported}</strong> carregada(s), {imported.duplicates} já importada(s) antes
+                {imported.already_in_system > 0 && `, ${imported.already_in_system} já lançada(s) no sistema`}
+                {imported.skipped > 0 && `, ${imported.skipped} ignorada(s)`}.
+              </p>
+              {imported.skipped > 0 && (
+                <div className="rounded-lg bg-amber-50 p-2 text-amber-900">
+                  <p className="font-medium">Linhas ignoradas, por motivo:</p>
+                  <ul className="list-disc pl-5">
+                    {Object.entries(imported.skip_reasons).map(([reason, count]) => (
+                      <li key={reason}>
+                        {reason}: {count}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-amber-700">
+                    Primeiras: linhas {imported.skipped_rows.join(", ")}
+                    {imported.skipped > imported.skipped_rows.length && "..."}
+                  </p>
+                </div>
+              )}
+            </div>
           )}
           <input
             ref={importInput}

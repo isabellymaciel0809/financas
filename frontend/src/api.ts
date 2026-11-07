@@ -330,6 +330,7 @@ export interface SpreadsheetImportResult {
   already_in_system: number;
   skipped: number;
   skipped_rows: number[];
+  skip_reasons: Record<string, number>;
 }
 
 export interface SpreadsheetUpdateResult {

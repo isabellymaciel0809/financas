@@ -269,3 +269,4 @@ class SpreadsheetImportResult(BaseModel):
     already_in_system: int
     skipped: int
     skipped_rows: list[int]
+    skip_reasons: dict[str, int]
