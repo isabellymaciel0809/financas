@@ -175,6 +175,7 @@ export interface ExpenseSummary {
   reimbursable: boolean;
   proposal: string | null;
   entry_type: string;
+  from_spreadsheet: boolean;
   number: string | null;
   total_cents: number | null;
   original_filename: string | null;
@@ -318,4 +319,57 @@ const itemParams = (filters: ItemFilters) => {
 export const itemsApi = {
   list: (filters: ItemFilters) => request<ItemsReport>(`/expenses/items?${itemParams(filters)}`),
   exportUrl: (filters: ItemFilters) => `/api/expenses/items/export.xlsx?${itemParams(filters)}`,
+};
+
+// --- Planilha que a empresa já usa -------------------------------------------------------------
+
+export interface SpreadsheetImportResult {
+  sheet: string;
+  imported: number;
+  duplicates: number;
+  skipped: number;
+  skipped_rows: number[];
+}
+
+export interface SpreadsheetUpdateResult {
+  blob: Blob;
+  filename: string;
+  added: number;
+  alreadyInSheet: number;
+}
+
+export const companySheetApi = {
+  /** Carrega o histórico da planilha da empresa para o sistema. */
+  import: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<SpreadsheetImportResult>("/expenses/spreadsheet/import", { method: "POST", body: form });
+  },
+  /** Devolve a própria planilha da empresa com os lançamentos novos no fim da tabela. */
+  update: async (file: File, month?: string): Promise<SpreadsheetUpdateResult> => {
+    const form = new FormData();
+    form.append("file", file);
+    if (month) form.append("month", month);
+    const response = await fetch("/api/expenses/spreadsheet/update", { method: "POST", body: form });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(typeof body.detail === "string" ? body.detail : `Erro ${response.status}`);
+    }
+    const disposition = response.headers.get("content-disposition") ?? "";
+    return {
+      blob: await response.blob(),
+      filename: /filename="([^"]+)"/.exec(disposition)?.[1] ?? "planilha-atualizada.xlsx",
+      added: Number(response.headers.get("x-rows-added") ?? 0),
+      alreadyInSheet: Number(response.headers.get("x-rows-already-in-sheet") ?? 0),
+    };
+  },
+};
+
+export const downloadBlob = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 };

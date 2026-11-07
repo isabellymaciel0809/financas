@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, Download, FileCode2, FileUp, Loader2, PenLine, Plus } from "lucide-react";
+import { Camera, Download, FileCode2, FileSpreadsheet, FileUp, Loader2, PenLine, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 import type { Notify } from "../App";
 import {
@@ -11,6 +11,7 @@ import {
   type ExpenseStatus,
   type ExpenseSummary,
 } from "../api";
+import CompanySheet from "../components/CompanySheet";
 import { Button, Card } from "../components/ui";
 import { formatDate, formatMoney, parseMoney } from "../format";
 import ExpenseDetail from "./ExpenseDetail";
@@ -61,6 +62,7 @@ export default function Expenses({ notify }: { notify: Notify }) {
   const [filter, setFilter] = useState<ExpenseStatus | "all">("all");
   const [selected, setSelected] = useState<number | null>(null);
   const [showManual, setShowManual] = useState(false);
+  const [showSheet, setShowSheet] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [exportMonth, setExportMonth] = useState("");
   const [batchProposal, setBatchProposal] = useState("");
@@ -119,11 +121,16 @@ export default function Expenses({ notify }: { notify: Notify }) {
           >
             <Download size={16} /> Exportar Excel
           </a>
+          <Button variant="ghost" onClick={() => setShowSheet((v) => !v)}>
+            <FileSpreadsheet size={16} /> Planilha da empresa
+          </Button>
           <Button onClick={() => setShowManual((v) => !v)}>
             <Plus size={16} /> Lançamento manual
           </Button>
         </div>
       </div>
+
+      {showSheet && <CompanySheet notify={notify} onClose={() => setShowSheet(false)} />}
 
       {showManual && (
         <ManualForm
@@ -252,7 +259,7 @@ export default function Expenses({ notify }: { notify: Notify }) {
 }
 
 function Row({ expense: e, onOpen }: { expense: ExpenseSummary; onOpen: () => void }) {
-  const Icon = SOURCE_ICON[e.source];
+  const Icon = e.from_spreadsheet ? FileSpreadsheet : SOURCE_ICON[e.source];
   return (
     <tr onClick={onOpen} className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50">
       <td className="py-2 pr-3 whitespace-nowrap text-slate-500 tabular-nums">

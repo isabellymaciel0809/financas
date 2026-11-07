@@ -25,6 +25,12 @@ sem API paga, e os documentos fiscais não saem do computador.
 - **Revisão** com a foto ao lado dos dados extraídos e a soma conferida enquanto se edita.
 - **Categorias por item** com a mesma cascata da IA (memória → regras → LLM); cada correção vira
   memória para as próximas notas.
+- **Integração com a planilha que a empresa já usa**, nos dois sentidos:
+  - *Carregar*: o histórico da planilha vira lançamentos no sistema (a tabela é encontrada
+    sozinha, mesmo com título acima; reimportar não duplica).
+  - *Atualizar*: envia-se a planilha atual e recebe-se o mesmo arquivo com os lançamentos novos.
+    Abas, formatação e totais são preservados: as linhas entram antes da linha de TOTAL, e
+    fórmulas como `=SOMA(G4:G20)` são estendidas. Linhas que já estão lá não se repetem.
 - **Tela de itens**: todos os itens de todas as notas numa tabela, com filtros (mês, proposta,
   tipo, categoria, busca), totais por tipo e por categoria e exportação do que está filtrado.
   Responde "quanto gastei de tubo de cobre este mês?" ou "quais materiais foram para a P-123?".
@@ -263,7 +269,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 96 testes: notas e cupons, planilha, itens, migrações, categorização, assistente e API
+pytest          # 100 testes: notas e cupons, planilha da empresa, itens, migrações, IA e API
 ruff check .
 ```
 

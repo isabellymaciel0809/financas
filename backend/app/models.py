@@ -138,6 +138,9 @@ class Expense(Base):
         String(30), default="Despesas", server_default="Despesas"
     )
 
+    # Linha importada da planilha da empresa: impressão digital para não importar duas vezes.
+    import_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+
     # Arquivo de origem (XML ou foto), guardado em UPLOAD_DIR.
     original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     stored_filename: Mapped[str | None] = mapped_column(String(80), nullable=True)
@@ -172,6 +175,10 @@ class Expense(Base):
     @property
     def has_file(self) -> bool:
         return self.stored_filename is not None
+
+    @property
+    def from_spreadsheet(self) -> bool:
+        return self.import_key is not None
 
 
 class ExpenseItem(Base):

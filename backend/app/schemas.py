@@ -176,6 +176,7 @@ class ExpenseSummary(BaseModel):
     reimbursable: bool
     proposal: str | None
     entry_type: str
+    from_spreadsheet: bool
     number: str | None
     total_cents: int | None
     original_filename: str | None
@@ -259,3 +260,11 @@ class ItemsReport(BaseModel):
     by_type: list[GroupTotal]
     by_category: list[GroupTotal]
     truncated: bool
+
+
+class SpreadsheetImportResult(BaseModel):
+    sheet: str
+    imported: int
+    duplicates: int
+    skipped: int
+    skipped_rows: list[int]
