@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, FileUp } from "lucide-react";
+import { AlertTriangle, Bot, CheckCircle2, FileUp } from "lucide-react";
 import { useRef, useState } from "react";
-import type { Notify, Page } from "../App";
+import type { Notify, OnQueued, Page } from "../App";
 import { api, type ImportResult } from "../api";
 import { Button, Card, StatsPills } from "../components/ui";
 
@@ -13,7 +13,11 @@ const FORMAT_LABELS: Record<string, string> = {
   csv_generico: "CSV genérico",
 };
 
-export default function ImportPage({ onNavigate, notify }: { onNavigate: (p: Page) => void; notify: Notify }) {
+export default function ImportPage({ onNavigate, notify, onQueued }: {
+  onNavigate: (p: Page) => void;
+  notify: Notify;
+  onQueued: OnQueued;
+}) {
   const queryClient = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -24,6 +28,7 @@ export default function ImportPage({ onNavigate, notify }: { onNavigate: (p: Pag
     onSuccess: (data) => {
       setResult(data);
       queryClient.invalidateQueries();
+      onQueued(data.llm_queued);
     },
     onError: (error) => notify(error.message, "error"),
   });
@@ -92,12 +97,20 @@ export default function ImportPage({ onNavigate, notify }: { onNavigate: (p: Pag
                 </p>
               </div>
               <StatsPills stats={result.categorization} />
-              {result.llm_error && (
-                <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-                  <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-                  A IA não respondeu ({result.llm_error}). As transações foram categorizadas por memória e
-                  regras; as demais ficaram pendentes para você revisar.
+              {result.llm_queued > 0 ? (
+                <p className="flex items-start gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
+                  <Bot size={16} className="mt-0.5 shrink-0" />
+                  {result.llm_queued} transação(ões) sem pista nas regras foram enviadas para a IA, que roda em
+                  segundo plano. Você pode continuar usando o app; avisamos quando terminar.
                 </p>
+              ) : (
+                result.categorization.none > 0 && (
+                  <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+                    <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                    Nenhuma IA disponível agora: {result.categorization.none} transação(ões) ficaram pendentes para
+                    você revisar.
+                  </p>
+                )
               )}
               <div className="flex gap-2">
                 <Button onClick={() => onNavigate("transactions")}>Ver transações</Button>

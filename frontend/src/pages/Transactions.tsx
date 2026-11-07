@@ -1,12 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot, Search, Trash2 } from "lucide-react";
 import { useDeferredValue, useState } from "react";
-import type { Notify } from "../App";
+import type { Notify, OnQueued } from "../App";
 import { api, type Category, type Transaction } from "../api";
 import { Button, Card, SourceBadge } from "../components/ui";
 import { formatDate, formatMoney } from "../format";
 
-export default function Transactions({ notify }: { notify: Notify }) {
+export default function Transactions({ notify, onQueued, jobRunning }: {
+  notify: Notify;
+  onQueued: OnQueued;
+  jobRunning: boolean;
+}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [month, setMonth] = useState("");
@@ -46,10 +50,9 @@ export default function Transactions({ notify }: { notify: Notify }) {
 
   const categorize = useMutation({
     mutationFn: api.categorizePending,
-    onSuccess: (result) => {
-      refresh();
-      if (result.llm_error) notify(`IA indisponível: ${result.llm_error}`, "error");
-      else notify(`${result.categorization.llm} de ${result.processed} pendentes categorizadas pela IA.`);
+    onSuccess: ({ queued }) => {
+      onQueued(queued);
+      notify(queued ? `${queued} pendente(s) enviadas para a IA.` : "Não há transações pendentes.");
     },
     onError: (error) => notify(error.message, "error"),
   });
@@ -62,11 +65,11 @@ export default function Transactions({ notify }: { notify: Notify }) {
         <h1 className="text-2xl font-semibold text-slate-900">Transações</h1>
         <Button
           onClick={() => categorize.mutate()}
-          disabled={!llmReady || categorize.isPending}
-          title={llmReady ? "Envia as transações sem categoria para o LLM" : "Nenhuma LLM disponível no momento"}
+          disabled={!llmReady || categorize.isPending || jobRunning}
+          title={llmReady ? "Envia as transações sem categoria para a IA" : "Nenhuma LLM disponível no momento"}
         >
           <Bot size={16} />
-          {categorize.isPending ? "Categorizando..." : "Categorizar pendentes com IA"}
+          {jobRunning ? "IA trabalhando..." : "Categorizar pendentes com IA"}
         </Button>
       </div>
 

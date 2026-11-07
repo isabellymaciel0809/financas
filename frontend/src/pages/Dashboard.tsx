@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { Notify, Page } from "../App";
+import type { Notify, OnQueued, Page } from "../App";
 import { api, type CategorizationStats } from "../api";
 import { Button, Card } from "../components/ui";
 import { formatMoney, formatMonthLong, formatMonthShort, shiftMonth } from "../format";
@@ -32,7 +32,11 @@ const SOURCE_LABELS: Record<keyof CategorizationStats, string> = {
 };
 const TOP_CATEGORIES = 7;
 
-export default function Dashboard({ onNavigate, notify }: { onNavigate: (p: Page) => void; notify: Notify }) {
+export default function Dashboard({ onNavigate, notify, onQueued }: {
+  onNavigate: (p: Page) => void;
+  notify: Notify;
+  onQueued: OnQueued;
+}) {
   const [month, setMonth] = useState<string | undefined>();
   const queryClient = useQueryClient();
   const summary = useQuery({ queryKey: ["summary", month], queryFn: () => api.summary(month) });
@@ -41,7 +45,11 @@ export default function Dashboard({ onNavigate, notify }: { onNavigate: (p: Page
     mutationFn: api.loadDemo,
     onSuccess: (result) => {
       queryClient.invalidateQueries();
-      notify(`${result.imported} transações de exemplo importadas.`);
+      onQueued(result.llm_queued);
+      notify(
+        `${result.imported} transações de exemplo importadas.` +
+          (result.llm_queued ? ` A IA está categorizando ${result.llm_queued} em segundo plano.` : ""),
+      );
     },
     onError: (error) => notify(error.message, "error"),
   });

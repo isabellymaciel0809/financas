@@ -17,7 +17,7 @@ def import_statement(
     filename: str,
     content: bytes,
     provider: LLMProvider | None,
-    batch_size: int = 25,
+    batch_size: int = 10,
 ) -> ImportResult:
     parsed = parse_file(filename, content)
     prints = fingerprints(parsed.rows)

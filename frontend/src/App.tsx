@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, ListOrdered, MessageCircle, Upload, Wallet } from "lucide-react";
+import { LayoutDashboard, ListOrdered, Loader2, MessageCircle, Upload, Wallet } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
+import { useCategorizationJob } from "./useCategorizationJob";
 import Assistant from "./pages/Assistant";
 import Dashboard from "./pages/Dashboard";
 import ImportPage from "./pages/Import";
@@ -9,6 +10,7 @@ import Transactions from "./pages/Transactions";
 
 export type Page = "dashboard" | "transactions" | "assistant" | "import";
 export type Notify = (message: string, tone?: "success" | "error") => void;
+export type OnQueued = (queued: number) => void;
 
 const NAV: { id: Page; label: string; icon: typeof Wallet }[] = [
   { id: "dashboard", label: "Visão geral", icon: LayoutDashboard },
@@ -23,6 +25,15 @@ export default function App() {
   const health = useQuery({ queryKey: ["health"], queryFn: api.health });
 
   const notify: Notify = useCallback((message, tone = "success") => setToast({ message, tone }), []);
+  const job = useCategorizationJob(
+    useCallback(
+      (categorized: number, error: string | null) =>
+        error
+          ? notify(`A IA parou com erro: ${error}`, "error")
+          : notify(`IA terminou: ${categorized} transação(ões) categorizada(s).`),
+      [notify],
+    ),
+  );
 
   useEffect(() => {
     if (!toast) return;
@@ -61,8 +72,14 @@ export default function App() {
               </button>
             ))}
           </nav>
+          {job.running && (
+            <span className="ml-auto flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+              <Loader2 size={12} className="animate-spin" />
+              IA categorizando {job.pending} transação(ões)...
+            </span>
+          )}
           <span
-            className="ml-auto flex items-center gap-2 text-xs text-slate-500"
+            className={`${job.running ? "" : "ml-auto"} flex items-center gap-2 text-xs text-slate-500`}
             title={llm && !llm.llm_available && llm.llm_provider !== "none"
               ? "LLM configurada, mas inacessível. O app segue funcionando com memória e regras."
               : undefined}
@@ -77,10 +94,12 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
-        {page === "dashboard" && <Dashboard onNavigate={setPage} notify={notify} />}
-        {page === "transactions" && <Transactions notify={notify} />}
+        {page === "dashboard" && <Dashboard onNavigate={setPage} notify={notify} onQueued={job.watch} />}
+        {page === "transactions" && (
+          <Transactions notify={notify} onQueued={job.watch} jobRunning={job.running} />
+        )}
         {page === "assistant" && <Assistant />}
-        {page === "import" && <ImportPage onNavigate={setPage} notify={notify} />}
+        {page === "import" && <ImportPage onNavigate={setPage} notify={notify} onQueued={job.watch} />}
       </main>
 
       {toast && (

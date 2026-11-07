@@ -33,13 +33,15 @@ export interface ImportResult {
   imported: number;
   duplicates: number;
   categorization: CategorizationStats;
+  llm_queued: number;
   llm_error: string | null;
 }
 
-export interface CategorizeResult {
-  processed: number;
-  categorization: CategorizationStats;
-  llm_error: string | null;
+export interface CategorizationJobStatus {
+  running: boolean;
+  pending: number;
+  last_categorized: number;
+  last_error: string | null;
 }
 
 export interface DashboardSummary {
@@ -74,6 +76,7 @@ export interface ChatMessage {
 export interface ChatResponse {
   answer: string;
   tool_calls: { name: string; arguments: Record<string, unknown> }[];
+  unverified_values: string[];
 }
 
 export interface TransactionFilters {
@@ -122,7 +125,8 @@ export const api = {
   deleteTransaction: (id: number) =>
     request<void>(`/transactions/${id}`, { method: "DELETE" }),
   categorizePending: () =>
-    request<CategorizeResult>("/transactions/categorize", { method: "POST" }),
+    request<{ queued: number }>("/transactions/categorize", { method: "POST" }),
+  categorizationStatus: () => request<CategorizationJobStatus>("/transactions/categorize/status"),
   upload: (file: File) => {
     const form = new FormData();
     form.append("file", file);

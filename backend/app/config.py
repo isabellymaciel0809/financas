@@ -17,7 +17,8 @@ class Settings(BaseSettings):
     #   anthropic -> Claude via API (pago, opcional)
     #   none      -> apenas memória + regras, sem LLM
     llm_provider: Literal["ollama", "anthropic", "none"] = "ollama"
-    llm_batch_size: int = 25
+    # Lotes pequenos: modelos locais de 3B perdem itens no meio de listas longas.
+    llm_batch_size: int = 10
 
     # 127.0.0.1 em vez de localhost: no Windows, "localhost" tenta IPv6 antes e fica lento.
     ollama_base_url: str = "http://127.0.0.1:11434"

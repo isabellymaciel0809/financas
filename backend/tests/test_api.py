@@ -26,11 +26,30 @@ def test_health(client):
     }
 
 
-def test_importacao_e_deduplicacao(client, fake_llm):
+def test_importacao_responde_na_hora_e_llm_roda_em_segundo_plano(client, fake_llm):
     fake_llm.answers = {"maria": ("Transferências", 0.8)}
     first = _upload(client).json()
     assert first["imported"] == 5
-    assert first["categorization"] == {"memory": 0, "rule": 2, "llm": 1, "none": 2}
+    # Na resposta: só memória e regras. As 3 pendentes vão para a LLM depois.
+    assert first["categorization"] == {"memory": 0, "rule": 2, "llm": 0, "none": 3}
+    assert first["llm_queued"] == 3
+
+    # O TestClient executa as background tasks antes de devolver a resposta.
+    status = client.get("/api/transactions/categorize/status").json()
+    assert status == {"running": False, "pending": 2, "last_categorized": 1, "last_error": None}
+    maria = client.get("/api/transactions", params={"search": "Maria"}).json()["items"][0]
+    assert maria["categorized_by"] == "llm"
+    assert maria["category"]["name"] == "Transferências"
+
+
+def test_importacao_sem_llm_nao_enfileira(client, fake_llm):
+    fake_llm.fail = True
+    assert _upload(client).json()["llm_queued"] == 0
+
+
+def test_deduplicacao(client):
+    first = _upload(client).json()
+    assert first["imported"] == 5
 
     second = _upload(client).json()
     assert second["imported"] == 0
@@ -60,11 +79,17 @@ def test_correcao_aprende_e_aplica_em_semelhantes(client):
 
 
 def test_recategorizar_pendentes(client, fake_llm):
-    _upload(client)
+    _upload(client)  # a LLM falsa ainda não sabe responder nada: tudo fica pendente
     fake_llm.answers = {"maria": ("Transferências", 0.9), "barbearia": ("Lazer", 0.9)}
-    body = client.post("/api/transactions/categorize").json()
-    assert body["processed"] == 3
-    assert body["categorization"]["llm"] == 3
+    response = client.post("/api/transactions/categorize")
+    assert response.status_code == 202
+    assert response.json() == {"queued": 3}
+    assert client.get("/api/transactions/categorize/status").json()["pending"] == 0
+
+
+def test_recategorizar_sem_llm_retorna_503(client, fake_llm):
+    fake_llm.fail = True
+    assert client.post("/api/transactions/categorize").status_code == 503
 
 
 def test_criar_transacao_manual(client):

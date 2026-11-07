@@ -64,13 +64,20 @@ class ImportResult(BaseModel):
     imported: int
     duplicates: int
     categorization: CategorizationStats
+    # Transações enviadas para a LLM em segundo plano (acompanhe em /categorize/status).
+    llm_queued: int = 0
     llm_error: str | None = None
 
 
-class CategorizeResult(BaseModel):
-    processed: int
-    categorization: CategorizationStats
-    llm_error: str | None = None
+class CategorizeQueued(BaseModel):
+    queued: int
+
+
+class CategorizationJobStatus(BaseModel):
+    running: bool
+    pending: int
+    last_categorized: int
+    last_error: str | None
 
 
 class CategoryTotal(BaseModel):

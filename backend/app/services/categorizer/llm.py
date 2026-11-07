@@ -40,6 +40,7 @@ class LLMItem:
 class CategoryOption:
     name: str
     kind: str  # "expense" | "income"
+    description: str = ""
 
 
 class Suggestion(BaseModel):
@@ -54,27 +55,54 @@ class CategorizationOutput(BaseModel):
 
 SYSTEM_PROMPT = """Você categoriza transações de extratos bancários brasileiros.
 
-Para cada transação, escolha exatamente uma categoria da lista fornecida, copiando o nome \
-exatamente como aparece. Valores negativos são saídas de dinheiro e devem receber uma \
-categoria do tipo "expense"; valores positivos são entradas e devem receber uma categoria do \
-tipo "income", exceto estornos e reembolsos, que podem voltar para a categoria da despesa \
-original. Use o nome do estabelecimento e o contexto brasileiro (siglas como IFD = iFood, \
-PIX, TED, maquininhas como PAG*, SumUp, Stone). Se não houver pistas suficientes, use \
-"Outros" para saídas e "Renda extra" para entradas, com confiança baixa.
+Para cada transação, identifique o tipo de estabelecimento ou de movimentação e escolha a \
+categoria cuja descrição melhor combina. Saídas de dinheiro recebem categorias de saída e \
+entradas recebem categorias de entrada; a exceção são estornos e reembolsos, que voltam para \
+a categoria da compra original. Considere o contexto brasileiro: IFD = iFood, Pix e TED são \
+transferências, e prefixos como PAG*, MP*, SumUp e Stone são só a maquininha de pagamento, \
+não o estabelecimento. Use "Outros" apenas como último recurso.
 
-Informe em "confidence" um número de 0 a 1 indicando sua certeza. Responda com um item em \
+Em "confidence", dê um número de 0 a 1: perto de 1 quando o estabelecimento é conhecido e \
+inequívoco, e abaixo de 0.5 quando você estiver deduzindo pelo nome. Responda com um item em \
 "results" para cada transação, usando o mesmo "index" recebido."""
 
 
+def _money(cents: int) -> str:
+    value = f"{abs(cents) / 100:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"{'entrada' if cents > 0 else 'saída'} de R$ {value}"
+
+
 def build_user_message(items: list[LLMItem], categories: list[CategoryOption]) -> str:
-    payload = {
-        "categorias": [{"nome": c.name, "tipo": c.kind} for c in categories],
-        "transacoes": [
-            {"index": i.index, "descricao": i.description, "valor": i.amount_cents / 100}
-            for i in items
-        ],
+    """Texto em linhas simples: modelos pequenos lidam melhor com isso do que com JSON aninhado."""
+    lines = ["Categorias:"]
+    for c in categories:
+        kind = "entrada" if c.kind == "income" else "saída"
+        lines.append(f"- {c.name} ({kind})" + (f": {c.description}" if c.description else ""))
+    lines += ["", "Transações:"]
+    lines += [f'{i.index}. "{i.description}" ({_money(i.amount_cents)})' for i in items]
+    return "\n".join(lines)
+
+
+def categorization_schema(category_names: list[str]) -> dict[str, Any]:
+    """JSON Schema da resposta com as categorias como enum: o modelo não pode inventar nomes."""
+    return {
+        "type": "object",
+        "properties": {
+            "results": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "index": {"type": "integer"},
+                        "category": {"type": "string", "enum": category_names},
+                        "confidence": {"type": "number"},
+                    },
+                    "required": ["index", "category", "confidence"],
+                },
+            }
+        },
+        "required": ["results"],
     }
-    return json.dumps(payload, ensure_ascii=False)
 
 
 # --- Conversa com ferramentas ----------------------------------------------------------------
@@ -164,7 +192,8 @@ class OllamaProvider:
         try:
             response = self._http.post(
                 f"{self.base_url}/api/chat",
-                json={"model": self.model, "stream": False, **body},
+                # keep_alive: mantém o modelo na memória entre chamadas (recarregar custa segundos).
+                json={"model": self.model, "stream": False, "keep_alive": "15m", **body},
                 timeout=self.timeout,
             )
             response.raise_for_status()
@@ -180,7 +209,7 @@ class OllamaProvider:
         message = self._chat(
             {
                 # Saída estruturada: o Ollama restringe a geração a este JSON Schema.
-                "format": CategorizationOutput.model_json_schema(),
+                "format": categorization_schema([c.name for c in categories]),
                 "options": {"temperature": 0},
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},

@@ -1,12 +1,12 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
 from app.database import get_db
 from app.deps import get_llm_provider
 from app.models import Category
 from app.schemas import CategoryCreate, CategoryOut, HealthOut, ImportResult
+from app.services.background import queue_llm
 from app.services.categorizer.llm import LLMProvider
 from app.services.demo import build_demo_csv
 from app.services.importer import StatementParseError
@@ -48,8 +48,22 @@ def create_category(payload: CategoryCreate, db: Session = Depends(get_db)):
     return category
 
 
+def _import(
+    db: Session,
+    background: BackgroundTasks,
+    provider: LLMProvider | None,
+    filename: str,
+    content: bytes,
+) -> ImportResult:
+    # Memória e regras rodam na hora; a LLM fica para depois da resposta.
+    result = import_statement(db, filename, content, provider=None)
+    result.llm_queued = queue_llm(background, provider, result.categorization.none)
+    return result
+
+
 @router.post("/imports", response_model=ImportResult, tags=["importação"])
 async def upload_statement(
+    background: BackgroundTasks,
     file: UploadFile = File(..., description="Extrato .csv (Nubank, Inter, genérico) ou .ofx"),
     db: Session = Depends(get_db),
     provider: LLMProvider | None = Depends(get_llm_provider),
@@ -58,19 +72,16 @@ async def upload_statement(
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "Arquivo maior que 5 MB.")
     try:
-        return import_statement(
-            db, file.filename or "extrato", content, provider, get_settings().llm_batch_size
-        )
+        return _import(db, background, provider, file.filename or "extrato", content)
     except StatementParseError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
 
 @router.post("/demo", response_model=ImportResult, tags=["importação"])
 def load_demo(
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     provider: LLMProvider | None = Depends(get_llm_provider),
 ):
     """Importa um extrato fictício dos últimos 3 meses (útil para conhecer o app)."""
-    return import_statement(
-        db, "extrato-demo.csv", build_demo_csv(), provider, get_settings().llm_batch_size
-    )
+    return _import(db, background, provider, "extrato-demo.csv", build_demo_csv())

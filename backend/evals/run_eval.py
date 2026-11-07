@@ -201,7 +201,7 @@ def main() -> None:
     parser.add_argument("--provider", choices=["none", "ollama", "anthropic"], default="none")
     parser.add_argument("--model", help="Modelo do provedor (padrão: o da configuração)")
     parser.add_argument("--dataset", type=Path, default=EVAL_DIR / "dataset.csv")
-    parser.add_argument("--batch-size", type=int, default=25)
+    parser.add_argument("--batch-size", type=int, default=Settings().llm_batch_size)
     args = parser.parse_args()
 
     overrides: dict = {"llm_provider": args.provider, "llm_batch_size": args.batch_size}

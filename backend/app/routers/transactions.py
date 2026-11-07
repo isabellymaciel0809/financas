@@ -1,23 +1,24 @@
 import hashlib
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
 from app.database import get_db
 from app.deps import get_llm_provider
 from app.models import CategorizedBy, Category, Transaction
 from app.routers.dashboard import month_range
 from app.schemas import (
-    CategorizeResult,
+    CategorizationJobStatus,
+    CategorizeQueued,
     TransactionCreate,
     TransactionOut,
     TransactionPage,
     TransactionUpdate,
 )
+from app.services.background import categorization_job, queue_llm
 from app.services.categorizer.llm import LLMProvider
 from app.services.categorizer.pipeline import categorize_transactions, remember
 from app.services.text import merchant_key
@@ -67,6 +68,7 @@ def list_transactions(
 @router.post("", response_model=TransactionOut, status_code=status.HTTP_201_CREATED)
 def create_transaction(
     payload: TransactionCreate,
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     provider: LLMProvider | None = Depends(get_llm_provider),
 ):
@@ -87,7 +89,8 @@ def create_transaction(
         db.flush()
     else:
         db.flush()
-        categorize_transactions(db, [tx], provider, get_settings().llm_batch_size)
+        outcome = categorize_transactions(db, [tx], provider=None)
+        queue_llm(background, provider, outcome.stats.none)
     db.commit()
     db.refresh(tx)
     return tx
@@ -144,20 +147,22 @@ def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
     db.commit()
 
 
-@router.post("/categorize", response_model=CategorizeResult)
+@router.post("/categorize", response_model=CategorizeQueued, status_code=status.HTTP_202_ACCEPTED)
 def categorize_pending(
-    db: Session = Depends(get_db),
+    background: BackgroundTasks,
     provider: LLMProvider | None = Depends(get_llm_provider),
 ):
-    """Roda a categorização de novo nas transações ainda sem categoria."""
-    pending = db.scalars(
-        select(Transaction).where(Transaction.categorized_by == CategorizedBy.none)
-    ).all()
-    outcome = categorize_transactions(db, pending, provider, get_settings().llm_batch_size)
-    db.commit()
-    return CategorizeResult(
-        processed=len(pending), categorization=outcome.stats, llm_error=outcome.llm_error
-    )
+    """Envia as transações ainda sem categoria para a LLM, em segundo plano."""
+    if provider is None or not provider.is_available():
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Nenhuma LLM disponível.")
+    pending = categorization_job.status().pending
+    return CategorizeQueued(queued=queue_llm(background, provider, pending))
+
+
+@router.get("/categorize/status", response_model=CategorizationJobStatus)
+def categorize_status():
+    """Acompanha o job de categorização em segundo plano (o frontend consulta enquanto roda)."""
+    return categorization_job.status()
 
 
 def _ensure_category(db: Session, category_id: int) -> None:

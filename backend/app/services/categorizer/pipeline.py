@@ -12,8 +12,9 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import CategorizedBy, Category, MerchantMemory, Transaction
+from app.models import CategorizedBy, Category, CategoryKind, MerchantMemory, Transaction
 from app.schemas import CategorizationStats
+from app.services.categorizer.defaults import CATEGORY_DESCRIPTIONS
 from app.services.categorizer.llm import CategoryOption, LLMError, LLMItem, LLMProvider
 from app.services.categorizer.rules import match_rule
 
@@ -32,7 +33,7 @@ def categorize_transactions(
     db: Session,
     transactions: Sequence[Transaction],
     provider: LLMProvider | None,
-    batch_size: int = 25,
+    batch_size: int = 10,
 ) -> PipelineResult:
     result = PipelineResult()
     categories = list(db.scalars(select(Category)))
@@ -53,32 +54,83 @@ def categorize_transactions(
             _assign(tx, None, CategorizedBy.none, None)
             pending.append(tx)
 
-    if pending and provider is not None:
-        options = [CategoryOption(c.name, c.kind.value) for c in categories]
-        for start in range(0, len(pending), batch_size):
-            chunk = pending[start : start + batch_size]
-            items = [LLMItem(i, tx.description, tx.amount_cents) for i, tx in enumerate(chunk)]
+    # Agrupa por estabelecimento (e sinal, para separar compras de estornos): três idas à
+    # mesma barbearia viram uma única pergunta para a LLM.
+    groups: dict[tuple[str, bool], list[Transaction]] = {}
+    for tx in pending:
+        groups.setdefault((tx.merchant_key, tx.amount_cents > 0), []).append(tx)
+
+    if groups and provider is not None:
+        # Reaproveita o que a LLM já decidiu para o mesmo estabelecimento em importações passadas.
+        for key, (category_id, confidence) in _previous_llm_decisions(db, groups, pending).items():
+            for tx in groups.pop(key):
+                _assign(tx, category_id, CategorizedBy.llm, confidence)
+
+        options = [
+            CategoryOption(c.name, c.kind.value, CATEGORY_DESCRIPTIONS.get(c.name, ""))
+            for c in categories
+        ]
+        group_list = list(groups.values())
+        for start in range(0, len(group_list), batch_size):
+            chunk = group_list[start : start + batch_size]
+            items = [
+                LLMItem(i, members[0].description, members[0].amount_cents)
+                for i, members in enumerate(chunk)
+            ]
             try:
                 suggestions = provider.categorize(items, options)
             except LLMError as exc:
                 logger.warning("LLM falhou, seguindo sem ele: %s", exc)
                 result.llm_error = str(exc)
                 break
+            answered: set[int] = set()
             for s in suggestions:
                 category = by_name.get(s.category.strip().casefold())
-                # Descarta respostas fora da lista ou com índice inventado.
-                if category is None or not 0 <= s.index < len(chunk):
+                # Descarta respostas fora da lista, com índice inventado ou repetido.
+                if category is None or not 0 <= s.index < len(chunk) or s.index in answered:
                     continue
-                tx = chunk[s.index]
-                if tx.categorized_by == CategorizedBy.llm:
-                    continue  # índice repetido na resposta
-                _assign(tx, category.id, CategorizedBy.llm, min(max(s.confidence, 0.0), 1.0))
-                result.stats.llm += 1
+                # Saída de dinheiro nunca é receita. (Entradas podem ter categoria de despesa:
+                # estornos voltam para a categoria da compra original.)
+                if chunk[s.index][0].amount_cents < 0 and category.kind == CategoryKind.income:
+                    continue
+                answered.add(s.index)
+                confidence = min(max(s.confidence, 0.0), 1.0)
+                for tx in chunk[s.index]:
+                    _assign(tx, category.id, CategorizedBy.llm, confidence)
 
+    result.stats.llm = sum(1 for tx in pending if tx.categorized_by == CategorizedBy.llm)
     result.stats.none = sum(1 for tx in pending if tx.categorized_by == CategorizedBy.none)
 
     db.flush()
     return result
+
+
+def _previous_llm_decisions(
+    db: Session,
+    groups: dict[tuple[str, bool], list[Transaction]],
+    current: list[Transaction],
+) -> dict[tuple[str, bool], tuple[int, float | None]]:
+    keys = {merchant for merchant, _ in groups}
+    current_ids = [tx.id for tx in current if tx.id is not None]
+    rows = db.execute(
+        select(
+            Transaction.merchant_key,
+            Transaction.amount_cents,
+            Transaction.category_id,
+            Transaction.confidence,
+        ).where(
+            Transaction.merchant_key.in_(keys),
+            Transaction.categorized_by == CategorizedBy.llm,
+            Transaction.category_id.is_not(None),
+            Transaction.id.not_in(current_ids),
+        )
+    ).all()
+    decisions: dict[tuple[str, bool], tuple[int, float | None]] = {}
+    for merchant, amount, category_id, confidence in rows:
+        key = (merchant, amount > 0)
+        if key in groups:
+            decisions.setdefault(key, (category_id, confidence))
+    return decisions
 
 
 def remember(db: Session, merchant_key: str, category_id: int) -> None:

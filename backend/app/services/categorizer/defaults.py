@@ -23,6 +23,36 @@ DEFAULT_CATEGORIES: list[tuple[str, CategoryKind, str, str]] = [
     ("Rendimentos", CategoryKind.income, "#84cc16", "📈"),
 ]
 
+# Descrições usadas no prompt da LLM. Modelos pequenos erram muito com só o nome da categoria.
+# São genéricas de propósito: não citam lojas do conjunto de avaliação (evals/).
+CATEGORY_DESCRIPTIONS: dict[str, str] = {
+    "Alimentação": "restaurantes, lanchonetes, delivery de comida, padarias, cafés e bares",
+    "Mercado": "supermercados, atacadistas, hortifrútis e compras de mantimentos",
+    "Transporte": (
+        "aplicativos de corrida, combustível, estacionamento, pedágio, transporte público "
+        "e manutenção de veículo"
+    ),
+    "Moradia": "aluguel, condomínio, IPTU, reformas e manutenção da casa",
+    "Contas e serviços": "energia elétrica, água, gás, internet, telefone e celular",
+    "Saúde": "farmácias, planos de saúde, consultas, exames, laboratórios, dentista e academia",
+    "Educação": "escolas, faculdades, cursos, livros e plataformas de ensino",
+    "Lazer": "cinema, shows, eventos, ingressos, jogos e passeios",
+    "Assinaturas": "streaming de vídeo e música, aplicativos e serviços com cobrança mensal",
+    "Compras": (
+        "lojas de varejo, roupas, calçados, eletrônicos, artigos esportivos, "
+        "marketplaces e compras em geral"
+    ),
+    "Viagem": "passagens aéreas e de ônibus, hotéis, pousadas e aluguel de temporada",
+    "Impostos e taxas": "tributos, guias de impostos, tarifas bancárias, IOF, juros e multas",
+    "Transferências": (
+        "Pix, TED ou transferências enviadas para pessoas ou para outra conta do próprio usuário"
+    ),
+    "Outros": "saques em dinheiro e gastos que realmente não se encaixam em outra categoria",
+    "Salário": "salário, pró-labore e proventos pagos pelo empregador",
+    "Renda extra": "freelas, vendas, serviços prestados e dinheiro recebido de clientes ou pessoas",
+    "Rendimentos": "juros e rendimentos de investimentos, poupança e dividendos",
+}
+
 # Categoria -> palavras/frases (comparadas como palavras inteiras, sem acento).
 EXPENSE_RULES: dict[str, list[str]] = {
     "Alimentação": [

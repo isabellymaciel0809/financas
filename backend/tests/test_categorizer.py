@@ -88,6 +88,12 @@ def test_llm_categoria_inventada_e_descartada(db):
     assert result.stats.none == 1
 
 
+def test_llm_nao_pode_dar_categoria_de_receita_para_saida(db):
+    tx = _tx(db, "Transferência para conta poupança", -50000)
+    categorize_transactions(db, [tx], FakeLLM({"poupanca": ("Salário", 0.9)}))
+    assert tx.categorized_by == CategorizedBy.none
+
+
 def test_falha_do_llm_nao_quebra_importacao(db):
     tx = _tx(db, "XPTO", -100)
     result = categorize_transactions(db, [tx], FakeLLM(fail=True))
@@ -97,10 +103,37 @@ def test_falha_do_llm_nao_quebra_importacao(db):
 
 def test_lotes(db):
     llm = FakeLLM({"loja": ("Compras", 0.9)})
-    txs = [_tx(db, f"Loja {chr(65 + i)}", -100 - i) for i in range(5)]
+    names = ["Aurora", "Bonita", "Central", "Dourada", "Estrela"]
+    txs = [_tx(db, f"Loja {name}", -100 - i) for i, name in enumerate(names)]
     result = categorize_transactions(db, txs, llm, batch_size=2)
     assert len(llm.calls) == 3
     assert result.stats.llm == 5
+
+
+def test_mesmo_estabelecimento_vai_uma_vez_so_para_a_llm(db):
+    llm = FakeLLM({"barbearia": ("Lazer", 0.7)})
+    txs = [_tx(db, "SumUp *BARBEARIA DO ZE", -4500 - i) for i in range(3)]
+    estorno = _tx(db, "SumUp *BARBEARIA DO ZE", 4500)  # sinal diferente: pergunta separada
+    result = categorize_transactions(db, [*txs, estorno], llm)
+
+    assert [i.description for i in llm.calls[0]] == ["SumUp *BARBEARIA DO ZE"] * 2
+    assert {i.amount_cents > 0 for i in llm.calls[0]} == {True, False}
+    assert all(t.category.name == "Lazer" for t in txs)
+    assert result.stats.llm == 4
+
+
+def test_reaproveita_decisao_anterior_da_llm(db):
+    first = _tx(db, "Pix enviado - Maria Oliveira", -10000)
+    categorize_transactions(db, [first], FakeLLM({"maria": ("Transferências", 0.8)}))
+
+    llm = FakeLLM()
+    later = _tx(db, "Pix enviado - Maria Oliveira", -25000)
+    result = categorize_transactions(db, [later], llm)
+
+    assert llm.calls == []  # nem chegou a chamar o modelo
+    assert later.category.name == "Transferências"
+    assert later.categorized_by == CategorizedBy.llm
+    assert result.stats.llm == 1
 
 
 def test_transacao_manual_nao_e_sobrescrita(db):
