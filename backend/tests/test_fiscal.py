@@ -316,7 +316,7 @@ def test_exportacao_excel(client):
     ]
     assert [c.value for c in workbook["Reembolsos"][2]] == ["Ana Souza", 200.0]
     notes = [c.value for c in workbook["Notas"][2]]
-    assert notes[6:9] == ["Despesas", "Ana Souza", "Sim"]
+    assert notes[6:9] == ["Despesa", "Ana Souza", "Sim"]
 
 
 def test_planilha_no_formato_da_empresa_uma_linha_por_item(client):
@@ -367,8 +367,7 @@ def test_planilha_no_formato_da_empresa_uma_linha_por_item(client):
     assert len(rows) == 3  # 2 itens da nota + 1 receita
     first = rows[0]
     assert first[0].date() == date(2026, 11, 3)
-    assert first[1].date() == date(2026, 11, 1)  # mês como data, exibido "nov/26"
-    assert sheet["B2"].number_format == "MMM/YY"
+    assert first[1] == 11  # mês como número, como na planilha da empresa
     assert first[2:] == ["FRIGELAR", "P-123", "FITA PVC 10M LINEAR", "Custo", 28.3]
     assert rows[2][2:] == [
         "Mercado Bom Preço",
@@ -452,7 +451,7 @@ def test_itens_custo_x_despesas_no_mes(client):
     _seed_items(client)
     report = _items(client, month="2026-11")
     by_type = {g["name"]: g["total_cents"] for g in report["by_type"]}
-    assert by_type == {"Receita": 150000, "Despesas": 12000, "Custo": 5330}
+    assert by_type == {"Receita": 150000, "Despesa": 12000, "Custo": 5330}
     by_category = {g["name"]: g["total_cents"] for g in report["by_category"]}
     assert by_category["Contas e serviços"] == 12000  # "vivo"/"internet" pelas regras
 

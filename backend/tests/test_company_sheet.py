@@ -135,7 +135,8 @@ def test_atualiza_a_planilha_da_empresa_sem_repetir_linhas(client):
     ws = wb["Controle"]
     new_row = [c.value for c in ws[9]]  # entrou logo depois do último lançamento...
     assert new_row[0] == datetime(2026, 10, 25)
-    assert new_row[2:] == ["Imobiliária Lar", None, "Aluguel do galpão", "Despesas", 2500.0]
+    assert new_row[1] == 10  # mês como número
+    assert new_row[2:] == ["Imobiliária Lar", None, "Aluguel do galpão", "Despesa", 2500.0]
     assert ws.cell(9, 1).number_format == "DD/MM/YYYY"  # formato copiado da linha de cima
     # ...e o TOTAL desceu uma linha, com a soma estendida para incluir a linha nova.
     assert [c.value for c in ws[10]][4:] == ["TOTAL", None, "=SUM(G4:G9)"]

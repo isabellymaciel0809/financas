@@ -31,6 +31,9 @@ sem API paga, e os documentos fiscais não saem do computador.
   - *Atualizar*: envia-se a planilha atual e recebe-se o mesmo arquivo com os lançamentos novos.
     Abas, formatação e totais são preservados: as linhas entram antes da linha de TOTAL, e
     fórmulas como `=SOMA(G4:G20)` são estendidas. Linhas que já estão lá não se repetem.
+- **Power BI**: fonte de dados (`/api/bi/lancamentos.json`) com todos os itens e dimensões
+  prontas, atualizada com um clique. Consulta Power Query e medidas DAX de DRE em
+  [`docs/power-bi.md`](docs/power-bi.md).
 - **Tela de itens**: todos os itens de todas as notas numa tabela, com filtros (mês, proposta,
   tipo, categoria, busca), totais por tipo e por categoria e exportação do que está filtrado.
   Responde "quanto gastei de tubo de cobre este mês?" ou "quais materiais foram para a P-123?".

@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 REQUIRED = {"date", "description", "value"}
 MAX_HEADER_SCAN = 20
 # Formato para células novas quando a planilha não tem uma linha anterior para copiar.
-DEFAULT_FORMATS = {"date": "DD/MM/YYYY", "month": "MMM/YY", "value": "#,##0.00"}
+DEFAULT_FORMATS = {"date": "DD/MM/YYYY", "month": "0", "value": "#,##0.00"}
 
 
 @dataclass
@@ -183,7 +183,7 @@ def read_rows(
                 counterpart=_text(cell("counterpart")),
                 proposal=_text(cell("proposal")),
                 description=str(description).strip()[:255],
-                entry_type=_text(cell("entry_type")) or "Despesas",
+                entry_type=_text(cell("entry_type")) or "Despesa",
                 cents=abs(cents),
             )
         )
@@ -337,7 +337,9 @@ def update_sheet(
         row = last + offset
         values = {
             "date": expense.issue_date,
-            "month": expense.issue_date.replace(day=1) if expense.issue_date else None,
+            "month": expense.issue_date.month
+            if expense.issue_date
+            else None,  # nº do mês, como na planilha
             "counterpart": expense.supplier.name if expense.supplier else None,
             "proposal": expense.proposal,
             "description": item.description,

@@ -134,9 +134,7 @@ class Expense(Base):
     # Nº da proposta/obra do cliente a que o lançamento pertence (custo de um serviço).
     proposal: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
     # Classificação da planilha da empresa: Custo, Despesas, Estoque, Receita, Caixa...
-    entry_type: Mapped[str] = mapped_column(
-        String(30), default="Despesas", server_default="Despesas"
-    )
+    entry_type: Mapped[str] = mapped_column(String(30), default="Despesa", server_default="Despesa")
 
     # Linha importada da planilha da empresa: impressão digital para não importar duas vezes.
     import_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 MONEY = "#,##0.00"
 DATE = "DD/MM/YYYY"
-MONTH = "MMM/YY"  # data do 1º dia do mês, exibida como "nov/26": filtra e ordena no Excel
+MONTH = "0"  # número do mês (1 a 12): é por ele que o DRE e o Dashboard da empresa filtram
 HEADER_FILL = PatternFill("solid", fgColor="065F46")
 NO_PROPOSAL = "(sem proposta)"
 
@@ -78,7 +78,7 @@ def build_items_workbook(rows: Sequence["ItemRow"]) -> bytes:
     data = [
         [
             r.issue_date,
-            r.issue_date.replace(day=1) if r.issue_date else None,
+            r.issue_date.month if r.issue_date else None,
             r.counterpart or "",
             r.proposal or "",
             r.description,
@@ -121,7 +121,7 @@ def build_workbook(expenses: Sequence[Expense]) -> bytes:
     # 1. Formato da planilha da empresa: uma linha por item
     rows = []
     for e in expenses:
-        month = e.issue_date.replace(day=1) if e.issue_date else None
+        month = e.issue_date.month if e.issue_date else None
         for item in e.items:
             rows.append(
                 [

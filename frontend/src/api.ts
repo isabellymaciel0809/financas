@@ -233,7 +233,7 @@ export interface ManualExpenseInput {
 }
 
 // Coluna "Tipo" da planilha da empresa (o campo aceita outros valores).
-export const ENTRY_TYPES = ["Custo", "Despesas", "Estoque", "Receita", "Caixa"];
+export const ENTRY_TYPES = ["Custo", "Despesa", "Estoque", "Receita", "Caixa", "Bens", "Diaria", "Dedução"];
 export const isIncomeType = (type: string) => type === "Receita";
 
 export const expensesApi = {

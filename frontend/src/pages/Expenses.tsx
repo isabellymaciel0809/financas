@@ -163,7 +163,7 @@ export default function Expenses({ notify }: { notify: Notify }) {
             onChange={(e) => setBatchType(e.target.value)}
             className="mt-1 block w-48 rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
           >
-            <option value="">Automático ({batchProposal.trim() ? "Custo" : "Despesas"})</option>
+            <option value="">Automático ({batchProposal.trim() ? "Custo" : "Despesa"})</option>
             {ENTRY_TYPES.filter((t) => !isIncomeType(t)).map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -314,7 +314,7 @@ function ManualForm({ notify, onDone }: { notify: Notify; onDone: (id: number | 
     entry_type: "",
   });
   const set = (key: keyof typeof form, value: string | boolean) => setForm((f) => ({ ...f, [key]: value }));
-  const entryType = form.entry_type || (form.proposal.trim() ? "Custo" : "Despesas");
+  const entryType = form.entry_type || (form.proposal.trim() ? "Custo" : "Despesa");
   const income = isIncomeType(entryType);
   const categoryOptions = categories.data?.filter((c) => c.kind === (income ? "income" : "expense")) ?? [];
   const changeType = (type: string) => {
