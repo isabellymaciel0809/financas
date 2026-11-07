@@ -220,6 +220,12 @@ def import_sheet(db: Session, content: bytes) -> ImportReport:
     # Só regras e memória: o histórico pode ter milhares de linhas, e a LLM na CPU levaria horas.
     categorize_items(db, [i for i in created if i.expense.entry_type != "Receita"], provider=None)
     db.commit()
+    logger.info(
+        'Planilha importada (aba "%s", cabeçalho na linha %d, colunas %s): %d linha(s) válida(s), '
+        "%d nova(s), %d já importada(s), %d já no sistema, %d ignorada(s) %s",
+        report.sheet, table.header_row, sorted(table.columns), len(rows), report.imported,
+        report.duplicates, report.already_in_system, report.skipped, report.skipped_rows,
+    )  # fmt: skip
     return report
 
 
