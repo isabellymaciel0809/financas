@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bot, Database, SendHorizontal, User } from "lucide-react";
+import { AlertTriangle, Bot, Database, SendHorizontal, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api, type ChatMessage, type ChatResponse } from "../api";
 import { Button, Card } from "../components/ui";
@@ -12,13 +12,14 @@ const SUGGESTIONS = [
 ];
 
 const TOOL_LABELS: Record<string, string> = {
+  gastos: "Consulta de gastos",
   resumo_financeiro: "Resumo do período",
-  buscar_transacoes: "Busca de transações",
   evolucao_mensal: "Evolução mensal",
 };
 
 interface Turn extends ChatMessage {
   toolCalls?: ChatResponse["tool_calls"];
+  unverified?: string[];
   error?: boolean;
 }
 
@@ -31,7 +32,15 @@ export default function Assistant() {
   const send = useMutation({
     mutationFn: (history: ChatMessage[]) => api.chat(history),
     onSuccess: (data) =>
-      setTurns((t) => [...t, { role: "assistant", content: data.answer, toolCalls: data.tool_calls }]),
+      setTurns((t) => [
+        ...t,
+        {
+          role: "assistant",
+          content: data.answer,
+          toolCalls: data.tool_calls,
+          unverified: data.unverified_values,
+        },
+      ]),
     onError: (error) =>
       setTurns((t) => [...t, { role: "assistant", content: error.message, error: true }]),
   });
@@ -159,6 +168,13 @@ function Bubble({ turn }: { turn: Turn }) {
         >
           {turn.content}
         </div>
+        {turn.unverified && turn.unverified.length > 0 && (
+          <p className="flex items-start gap-1.5 rounded-xl bg-amber-50 px-3 py-2 text-left text-xs text-amber-800">
+            <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+            Não encontrei {turn.unverified.length > 1 ? "estes valores" : "este valor"} nos seus dados:{" "}
+            {turn.unverified.join(", ")}. A IA pode ter errado; confira na aba Transações.
+          </p>
+        )}
         {turn.toolCalls && turn.toolCalls.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {turn.toolCalls.map((call, i) => (

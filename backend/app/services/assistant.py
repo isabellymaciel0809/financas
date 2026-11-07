@@ -1,15 +1,24 @@
 """Assistente financeiro: a LLM responde perguntas consultando o banco por meio de ferramentas.
 
-A LLM nunca faz contas nem inventa valores: ela escolhe uma ferramenta, o backend executa a
-consulta em SQL e devolve os números prontos. Os argumentos são validados com Pydantic; um
-argumento inválido volta para a LLM como erro, para ela corrigir e tentar de novo.
+Princípio de projeto: a LLM só escolhe a intenção; o backend faz todo o resto.
+Testes com um modelo local de 3B mostraram que ele erra contas de datas, esquece de separar
+receitas de despesas e copia sinais negativos para a resposta. Por isso:
+- períodos são opções fechadas ("mes_passado") e o backend calcula as datas;
+- a ferramenta `gastos` só enxerga despesas e devolve valores positivos;
+- todo valor volta já formatado em reais, então não sobra conta para a LLM fazer.
+
+Os argumentos são validados com Pydantic; um argumento inválido volta para a LLM como erro,
+para ela corrigir e tentar de novo.
 """
 
+import json
+import re
+from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import func, select
+from pydantic import BaseModel, Field, ValidationError, field_validator
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Category, Transaction
@@ -18,91 +27,140 @@ from app.services.text import simplify
 
 UNCATEGORIZED = "Sem categoria"
 
+Period = Literal[
+    "este_mes",
+    "mes_passado",
+    "ultimos_3_meses",
+    "ultimos_6_meses",
+    "este_ano",
+    "ano_passado",
+    "tudo",
+]
+
+PERIOD_HELP = (
+    "este_mes = do dia 1 do mês atual até hoje; mes_passado = o mês anterior inteiro; "
+    "ultimos_3_meses e ultimos_6_meses incluem o mês atual; este_ano = desde 1º de janeiro; "
+    "tudo = todo o histórico."
+)
+
+
+def brl(cents: int) -> str:
+    value = f"{abs(cents) / 100:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"{'-' if cents < 0 else ''}R$ {value}"
+
+
+def _add_months(day: date, months: int) -> date:
+    index = day.year * 12 + day.month - 1 + months
+    return date(index // 12, index % 12 + 1, 1)
+
+
+def resolve_period(period: Period, month: str | None, today: date) -> tuple[date, date]:
+    """Devolve (início, fim) inclusivos. `month` (AAAA-MM) tem prioridade sobre `period`."""
+    if month:
+        start = date(int(month[:4]), int(month[5:7]), 1)
+        return start, _add_months(start, 1) - timedelta(days=1)
+    first_of_month = today.replace(day=1)
+    match period:
+        case "este_mes":
+            return first_of_month, today
+        case "mes_passado":
+            return _add_months(first_of_month, -1), first_of_month - timedelta(days=1)
+        case "ultimos_3_meses":
+            return _add_months(first_of_month, -2), today
+        case "ultimos_6_meses":
+            return _add_months(first_of_month, -5), today
+        case "este_ano":
+            return date(today.year, 1, 1), today
+        case "ano_passado":
+            return date(today.year - 1, 1, 1), date(today.year - 1, 12, 31)
+        case _:
+            return date(1900, 1, 1), today
+
 
 class PeriodArgs(BaseModel):
-    data_inicio: date
-    data_fim: date
+    periodo: Period = "este_mes"
+    mes: str | None = Field(None, pattern=r"^\d{4}-\d{2}$")
 
 
-class SearchArgs(BaseModel):
-    data_inicio: date | None = None
-    data_fim: date | None = None
+class SpendingArgs(PeriodArgs):
     categoria: str | None = None
-    texto: str | None = Field(None, max_length=100)
-    tipo: Literal["despesa", "receita"] | None = None
-    ordem: Literal["maiores", "recentes"] = "recentes"
-    limite: int = Field(10, ge=1, le=50)
+    estabelecimento: str | None = Field(None, max_length=60)
+    limite: int = Field(5, ge=1, le=20)
+
+    @field_validator("limite", mode="before")
+    @classmethod
+    def _coerce_int(cls, value: Any) -> Any:
+        return int(value) if isinstance(value, str) and value.isdigit() else value
 
 
 class MonthlyArgs(BaseModel):
     meses: int = Field(6, ge=1, le=24)
 
 
+_PERIOD_PROPERTIES = {
+    "periodo": {
+        "type": "string",
+        "enum": list(Period.__args__),
+        "description": PERIOD_HELP,
+    },
+    "mes": {
+        "type": "string",
+        "description": "Mês específico no formato AAAA-MM (ex.: 2026-10). Substitui 'periodo'.",
+    },
+}
+
 TOOLS = [
+    ToolSpec(
+        name="gastos",
+        description=(
+            "Quanto foi GASTO (só despesas) em um período: total, divisão por categoria e as "
+            "maiores despesas. Use para 'quanto gastei', 'maiores gastos', 'gastos com X'. "
+            "Para um estabelecimento ou app (Uber, iFood, Netflix), use 'estabelecimento'; "
+            "para um tipo de gasto (Alimentação, Transporte), use 'categoria'."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                **_PERIOD_PROPERTIES,
+                "categoria": {"type": "string", "description": "Nome exato de uma categoria"},
+                "estabelecimento": {
+                    "type": "string",
+                    "description": "Trecho do nome na descrição, ex.: 'uber'",
+                },
+                "limite": {
+                    "type": "integer",
+                    "description": "Quantas das maiores despesas listar (padrão 5)",
+                },
+            },
+        },
+    ),
     ToolSpec(
         name="resumo_financeiro",
         description=(
-            "Totais de um período: receitas, despesas, saldo e quanto foi gasto/recebido em cada "
-            "categoria. Use para perguntas como 'quanto gastei em outubro?' ou 'quanto gastei com "
-            "alimentação este mês?'. As datas são inclusivas."
+            "Receitas, despesas e saldo de um período, com as receitas por categoria. Use para "
+            "'quanto recebi', 'qual meu saldo', 'sobrou dinheiro?'."
         ),
-        parameters={
-            "type": "object",
-            "properties": {
-                "data_inicio": {"type": "string", "format": "date", "description": "AAAA-MM-DD"},
-                "data_fim": {"type": "string", "format": "date", "description": "AAAA-MM-DD"},
-            },
-            "required": ["data_inicio", "data_fim"],
-        },
-    ),
-    ToolSpec(
-        name="buscar_transacoes",
-        description=(
-            "Lista transações com filtros opcionais e devolve também a quantidade e a soma de "
-            "todas que casam com o filtro. Use para 'maiores gastos', 'quanto gastei no iFood', "
-            "'quais compras fiz na Amazon'. Valores negativos são despesas."
-        ),
-        parameters={
-            "type": "object",
-            "properties": {
-                "data_inicio": {"type": "string", "format": "date"},
-                "data_fim": {"type": "string", "format": "date"},
-                "categoria": {"type": "string", "description": "Nome exato de uma categoria"},
-                "texto": {"type": "string", "description": "Trecho da descrição, ex.: 'ifood'"},
-                "tipo": {"type": "string", "enum": ["despesa", "receita"]},
-                "ordem": {"type": "string", "enum": ["maiores", "recentes"]},
-                "limite": {"type": "integer", "minimum": 1, "maximum": 50},
-            },
-        },
+        parameters={"type": "object", "properties": _PERIOD_PROPERTIES},
     ),
     ToolSpec(
         name="evolucao_mensal",
-        description="Receitas e despesas mês a mês, terminando no mês mais recente com dados.",
+        description="Receitas, despesas e saldo mês a mês, para comparar meses ou ver tendência.",
         parameters={
             "type": "object",
-            "properties": {"meses": {"type": "integer", "minimum": 1, "maximum": 24}},
+            "properties": {"meses": {"type": "integer", "description": "Quantos meses (1 a 24)"}},
         },
     ),
 ]
 
-SYSTEM_TEMPLATE = """Você é o assistente de um app de finanças pessoais e responde em português \
-do Brasil, de forma curta e direta.
+SYSTEM_TEMPLATE = """Você é o assistente de um app de finanças pessoais. Responda em português \
+do Brasil, em no máximo três frases curtas ou uma lista curta.
 
-Hoje é {today}. Categorias existentes: {categories}.
+Hoje é {today}. Categorias: {categories}.
 
-Regras:
-- Todo número da sua resposta precisa vir de uma ferramenta. Nunca estime nem invente valores.
-- Escolha as datas a partir de hoje: "este mês" vai do dia 1 do mês atual até hoje; "mês \
-passado" é o mês anterior inteiro.
-- Para filtrar por categoria, use exatamente um dos nomes da lista acima.
-- Formate dinheiro como R$ 1.234,56.
-- Se não houver dados para a pergunta, diga isso claramente.
-- Se a pergunta não for sobre as finanças do usuário, explique educadamente que você só \
-responde sobre os dados do app."""
-
-
-def _reais(cents: int) -> float:
-    return round(cents / 100, 2)
+Sempre use uma ferramenta antes de responder sobre valores, e copie os valores exatamente como \
+a ferramenta devolveu: nunca calcule, estime ou invente números. Se a ferramenta não encontrar \
+nada, diga isso. Se a pergunta não for sobre as finanças do usuário, diga que você só responde \
+sobre os dados do app."""
 
 
 class Toolbox:
@@ -115,15 +173,15 @@ class Toolbox:
 
     def execute(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         handlers = {
+            "gastos": (SpendingArgs, self.gastos),
             "resumo_financeiro": (PeriodArgs, self.resumo_financeiro),
-            "buscar_transacoes": (SearchArgs, self.buscar_transacoes),
             "evolucao_mensal": (MonthlyArgs, self.evolucao_mensal),
         }
         if name not in handlers:
-            return {"erro": f"Ferramenta desconhecida: {name}"}
+            return {"erro": f"Ferramenta desconhecida: {name}. Use: {', '.join(handlers)}"}
         schema, handler = handlers[name]
         # Modelos pequenos às vezes mandam campos vazios ou "null" em vez de omitir.
-        cleaned = {k: v for k, v in arguments.items() if v not in (None, "", "null")}
+        cleaned = {k: v for k, v in arguments.items() if v not in (None, "", "null", "None")}
         try:
             args = schema.model_validate(cleaned)
         except ValidationError as exc:
@@ -133,6 +191,11 @@ class Toolbox:
         except ValueError as exc:
             return {"erro": str(exc)}
 
+    def _period(self, args: PeriodArgs) -> tuple[date, date, str]:
+        start, end = resolve_period(args.periodo, args.mes, self.today)
+        label = f"{start:%d/%m/%Y} a {end:%d/%m/%Y}"
+        return start, end, label
+
     def _resolve_category(self, name: str) -> Category:
         wanted = simplify(name)
         for category in self.categories:
@@ -141,113 +204,114 @@ class Toolbox:
         valid = ", ".join(c.name for c in self.categories)
         raise ValueError(f"Categoria '{name}' não existe. Use uma destas: {valid}")
 
+    def _in_period(self, start: date, end: date):
+        return (Transaction.date >= start, Transaction.date < end + timedelta(days=1))
+
+    def gastos(self, args: SpendingArgs) -> dict[str, Any]:
+        start, end, label = self._period(args)
+        conditions = [*self._in_period(start, end), Transaction.amount_cents < 0]
+        if args.categoria:
+            conditions.append(Transaction.category_id == self._resolve_category(args.categoria).id)
+        if args.estabelecimento:
+            conditions.append(Transaction.description.ilike(f"%{args.estabelecimento}%"))
+
+        transactions = self.db.scalars(select(Transaction).where(*conditions)).all()
+        total = -sum(tx.amount_cents for tx in transactions)
+        by_category: dict[str, int] = {}
+        for tx in transactions:
+            name = tx.category.name if tx.category else UNCATEGORIZED
+            by_category[name] = by_category.get(name, 0) - tx.amount_cents
+        largest = sorted(transactions, key=lambda tx: tx.amount_cents)[: args.limite]
+
+        filters = [f for f in (args.categoria, args.estabelecimento) if f]
+        return {
+            "periodo": label,
+            "filtro": " / ".join(filters) or "todas as despesas",
+            "total_gasto": brl(total),
+            "quantidade_de_despesas": len(transactions),
+            "por_categoria": [
+                {"categoria": k, "total": brl(v)}
+                for k, v in sorted(by_category.items(), key=lambda kv: kv[1], reverse=True)
+            ],
+            "maiores_despesas": [
+                {
+                    "data": f"{tx.date:%d/%m/%Y}",
+                    "descricao": tx.description,
+                    "valor": brl(-tx.amount_cents),
+                    "categoria": tx.category.name if tx.category else UNCATEGORIZED,
+                }
+                for tx in largest
+            ],
+        }
+
     def resumo_financeiro(self, args: PeriodArgs) -> dict[str, Any]:
-        if args.data_fim < args.data_inicio:
-            raise ValueError("data_fim é anterior a data_inicio.")
+        start, end, label = self._period(args)
         rows = self.db.execute(
             select(Transaction.amount_cents, Category.name)
             .outerjoin(Category, Transaction.category_id == Category.id)
-            .where(
-                Transaction.date >= args.data_inicio,
-                Transaction.date < args.data_fim + timedelta(days=1),
-            )
+            .where(*self._in_period(start, end))
         ).all()
-        expenses: dict[str, list[int]] = {}
-        incomes: dict[str, list[int]] = {}
-        for amount, category in rows:
-            bucket = incomes if amount > 0 else expenses
-            bucket.setdefault(category or UNCATEGORIZED, []).append(abs(amount))
-
-        def ranked(groups: dict[str, list[int]]) -> list[dict[str, Any]]:
-            items = sorted(groups.items(), key=lambda kv: sum(kv[1]), reverse=True)
-            return [
-                {"categoria": k, "total": _reais(sum(v)), "quantidade": len(v)} for k, v in items
-            ]
-
         income = sum(a for a, _ in rows if a > 0)
         expense = -sum(a for a, _ in rows if a < 0)
+        by_income: dict[str, int] = {}
+        for amount, category in rows:
+            if amount > 0:
+                key = category or UNCATEGORIZED
+                by_income[key] = by_income.get(key, 0) + amount
         return {
-            "periodo": f"{args.data_inicio} a {args.data_fim}",
-            "quantidade_transacoes": len(rows),
-            "receitas": _reais(income),
-            "despesas": _reais(expense),
-            "saldo": _reais(income - expense),
-            "despesas_por_categoria": ranked(expenses),
-            "receitas_por_categoria": ranked(incomes),
-        }
-
-    def buscar_transacoes(self, args: SearchArgs) -> dict[str, Any]:
-        conditions = []
-        if args.data_inicio:
-            conditions.append(Transaction.date >= args.data_inicio)
-        if args.data_fim:
-            conditions.append(Transaction.date < args.data_fim + timedelta(days=1))
-        if args.categoria:
-            conditions.append(Transaction.category_id == self._resolve_category(args.categoria).id)
-        if args.texto:
-            conditions.append(Transaction.description.ilike(f"%{args.texto}%"))
-        if args.tipo == "despesa":
-            conditions.append(Transaction.amount_cents < 0)
-        elif args.tipo == "receita":
-            conditions.append(Transaction.amount_cents > 0)
-
-        count, total = self.db.execute(
-            select(func.count(), func.coalesce(func.sum(Transaction.amount_cents), 0)).where(
-                *conditions
-            )
-        ).one()
-        order = (
-            (func.abs(Transaction.amount_cents).desc(),)
-            if args.ordem == "maiores"
-            else (Transaction.date.desc(), Transaction.id.desc())
-        )
-        transactions = self.db.scalars(
-            select(Transaction).where(*conditions).order_by(*order).limit(args.limite)
-        ).all()
-        return {
-            "quantidade_encontrada": count,
-            "soma": _reais(total),
-            "mostrando": len(transactions),
-            "transacoes": [
-                {
-                    "data": tx.date.isoformat(),
-                    "descricao": tx.description,
-                    "valor": _reais(tx.amount_cents),
-                    "categoria": tx.category.name if tx.category else UNCATEGORIZED,
-                }
-                for tx in transactions
+            "periodo": label,
+            "receitas": brl(income),
+            "despesas": brl(expense),
+            "saldo": brl(income - expense),
+            "situacao": "sobrou dinheiro" if income >= expense else "gastou mais do que recebeu",
+            "receitas_por_categoria": [
+                {"categoria": k, "total": brl(v)}
+                for k, v in sorted(by_income.items(), key=lambda kv: kv[1], reverse=True)
             ],
         }
 
     def evolucao_mensal(self, args: MonthlyArgs) -> dict[str, Any]:
-        latest = self.db.scalar(select(func.max(Transaction.date))) or self.today
-        months: list[tuple[int, int]] = []
-        year, month = latest.year, latest.month
-        for _ in range(args.meses):
-            months.append((year, month))
-            year, month = (year - 1, 12) if month == 1 else (year, month - 1)
-        months.reverse()
-
-        start = date(*months[0], 1)
+        first = _add_months(self.today.replace(day=1), -(args.meses - 1))
         rows = self.db.execute(
-            select(Transaction.date, Transaction.amount_cents).where(Transaction.date >= start)
+            select(Transaction.date, Transaction.amount_cents).where(
+                *self._in_period(first, self.today)
+            )
         ).all()
-        totals = {m: [0, 0] for m in months}
+        totals = {_add_months(first, i): [0, 0] for i in range(args.meses)}
         for tx_date, amount in rows:
-            key = (tx_date.year, tx_date.month)
-            if key in totals:
-                totals[key][0 if amount > 0 else 1] += abs(amount)
+            totals[tx_date.replace(day=1)][0 if amount > 0 else 1] += abs(amount)
         return {
             "meses": [
                 {
-                    "mes": f"{y:04d}-{m:02d}",
-                    "receitas": _reais(inc),
-                    "despesas": _reais(exp),
-                    "saldo": _reais(inc - exp),
+                    "mes": f"{m:%m/%Y}",
+                    "receitas": brl(inc),
+                    "despesas": brl(exp),
+                    "saldo": brl(inc - exp),
                 }
-                for (y, m), (inc, exp) in totals.items()
+                for m, (inc, exp) in totals.items()
             ]
         }
+
+
+# Aceita "R$ 1.234,56" e também "R$ 1234,56" (o modelo nem sempre usa separador de milhar).
+_MONEY = re.compile(r"R\$\s*-?\s*(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)")
+
+
+def money_values(text: str) -> dict[int, str]:
+    """Valores em reais citados num texto, em centavos (sem sinal) -> como apareceram."""
+    found: dict[int, str] = {}
+    for match in _MONEY.finditer(text):
+        raw = match.group(1).replace(".", "")
+        reais, _, centavos = raw.partition(",")
+        found[int(reais) * 100 + int(centavos.ljust(2, "0") or 0)] = match.group(0)
+    return found
+
+
+@dataclass
+class Answer:
+    result: ChatResult
+    # Valores da resposta que não aparecem em nenhum resultado de ferramenta.
+    unverified_values: list[str]
 
 
 def ask(
@@ -255,10 +319,24 @@ def ask(
     provider: LLMProvider,
     messages: list[dict[str, str]],
     today: date | None = None,
-) -> ChatResult:
+) -> Answer:
     toolbox = Toolbox(db, today)
     system = SYSTEM_TEMPLATE.format(
-        today=toolbox.today.isoformat(),
+        today=f"{toolbox.today:%d/%m/%Y}",
         categories=", ".join(c.name for c in toolbox.categories),
     )
-    return provider.chat_with_tools(system, messages, TOOLS, toolbox.execute)
+    tool_outputs: list[str] = []
+
+    def execute(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        output = toolbox.execute(name, arguments)
+        tool_outputs.append(json.dumps(output, ensure_ascii=False))
+        return output
+
+    result = provider.chat_with_tools(system, messages, TOOLS, execute)
+
+    # Checagem de fatos: todo valor citado precisa ter vindo de uma ferramenta.
+    grounded = money_values(" ".join(tool_outputs))
+    unverified = [
+        raw for cents, raw in money_values(result.answer).items() if cents not in grounded
+    ]
+    return Answer(result=result, unverified_values=unverified)

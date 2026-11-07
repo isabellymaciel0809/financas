@@ -30,6 +30,8 @@ class ToolCallOut(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     tool_calls: list[ToolCallOut]
+    # Valores em R$ da resposta que não aparecem nos dados consultados (possível alucinação).
+    unverified_values: list[str]
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -48,10 +50,12 @@ def chat(
             "O assistente precisa de uma LLM. Instale o Ollama e baixe o modelo configurado.",
         )
     try:
-        result = ask(db, provider, [m.model_dump() for m in payload.messages])
+        answer = ask(db, provider, [m.model_dump() for m in payload.messages])
     except LLMError as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+    result = answer.result
     return ChatResponse(
         answer=result.answer or "Não consegui formular uma resposta. Tente reformular a pergunta.",
         tool_calls=[ToolCallOut(name=c.name, arguments=c.arguments) for c in result.tool_calls],
+        unverified_values=answer.unverified_values,
     )
