@@ -46,6 +46,7 @@ EXPENSE_RULES: dict[str, list[str]] = {
         "sushi",
         "churrascaria",
         "ze delivery",
+        "uber eats",
     ],
     "Mercado": [
         "supermercado",

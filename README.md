@@ -50,6 +50,27 @@ Decisões de projeto:
 | **Rastreabilidade** | Cada transação guarda `categorized_by` (`memory`, `rule`, `llm`, `manual`) e a confiança, o que permite auditar e medir cada etapa. Sugestões da IA com confiança abaixo de 60% aparecem em "precisa de revisão". |
 | **Valores em centavos (`int`)** | Evita erros de arredondamento de ponto flutuante em dinheiro. |
 
+## Avaliação da IA
+
+Não basta chamar uma LLM: é preciso medir se ela acerta. O diretório [`backend/evals/`](backend/evals/)
+tem **145 transações rotuladas à mão**, com casos difíceis de propósito (estornos, maquininhas,
+siglas, nomes de pessoas), e um script que roda o **mesmo pipeline do app** e mede cada etapa:
+
+```bash
+cd backend
+python -m evals.run_eval                                    # só regras
+python -m evals.run_eval --provider ollama --model qwen2.5:3b
+```
+
+| Configuração | Acerto de ponta a ponta | Regras: cobertura / acerto | LLM: acerto no que sobrou |
+|---|---|---|---|
+| Só regras | 69,0% | 69,0% / 100% | — |
+| Regras + `qwen2.5:3b` | _a medir_ | 69,0% / 100% | _a medir_ |
+
+A primeira rodada da avaliação encontrou dois bugs reais nas regras ("UBER EATS" classificado como
+Transporte, "MERCADO PAGO \*LOJA" como Mercado). Os dois foram corrigidos e viraram testes de
+regressão. O CI falha se alguma regra voltar a errar no conjunto rotulado.
+
 ## Stack
 
 **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, Pydantic, SQLite (dev) / PostgreSQL (Docker), pytest, Ruff
@@ -107,7 +128,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 36 testes: parsers, cascata de categorização, aprendizado e API
+pytest          # 40 testes: parsers, cascata de categorização, aprendizado, API e avaliação
 ruff check .
 ```
 
@@ -139,6 +160,6 @@ frontend/src/
 - [ ] Chat com as finanças ("quanto gastei com delivery em outubro?") via tool use
 - [ ] Resumo mensal gerado pela IA, com alertas de gastos fora do padrão
 - [ ] Lançamento por texto livre ("gastei 45 no mercado ontem")
-- [ ] Métricas de acerto da IA a partir das correções do usuário
+- [ ] Métricas de acerto da IA em produção, a partir das correções do usuário
 - [ ] Autenticação e múltiplos usuários
 - [ ] Migrações com Alembic

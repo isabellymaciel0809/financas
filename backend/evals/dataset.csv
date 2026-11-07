@@ -1,0 +1,146 @@
+descricao,valor,categoria
+Compra no débito - IFD*IFOOD,-45.90,Alimentação
+IFD*RESTAURANTE SABOR CASEIRO,-38.50,Alimentação
+RAPPI*RAPPI BRASIL,-52.30,Alimentação
+MCDONALDS 0123 SAO PAULO,-32.90,Alimentação
+BK BRASIL OPERACAO,-29.90,Alimentação
+PAG*LanchoneteDoBairro,-18.00,Alimentação
+SumUp *PASTELARIA YOKO,-14.00,Alimentação
+OUTBACK SHOPPING ELDORADO,-189.00,Alimentação
+STARBUCKS VILA OLIMPIA,-24.50,Alimentação
+PADARIA REAL,-12.40,Alimentação
+ZE DELIVERY,-67.80,Alimentação
+HABIBS 345,-41.20,Alimentação
+SPOLETO PAULISTA,-36.90,Alimentação
+EC *BOTECO DO JUCA,-58.00,Alimentação
+MP *ACAIDOTIO,-22.00,Alimentação
+COCO BAMBU MORUMBI,-245.00,Alimentação
+UBER EATS,-48.70,Alimentação
+GIRAFFAS 210,-31.80,Alimentação
+CARREFOUR HIPER 123,-312.45,Mercado
+PAO DE ACUCAR-1234,-156.20,Mercado
+ASSAI ATACADISTA,-420.10,Mercado
+ATACADAO SA,-289.00,Mercado
+DIA BRASIL SOCIEDADE LTDA,-64.35,Mercado
+OBA HORTIFRUTI,-88.90,Mercado
+SAMS CLUB,-510.00,Mercado
+ST MARCHE SUPERMERCADOS,-134.60,Mercado
+MAMBO SUPERMERCADO,-97.30,Mercado
+HIROTA FOOD EXPRESS,-43.20,Mercado
+SONDA SUPERMERCADOS,-176.80,Mercado
+EXTRA HIPER 123,-201.40,Mercado
+UBER *TRIP,-23.50,Transporte
+UBER *TRIP HELP.UBER.COM,-17.90,Transporte
+99APP *99POP,-15.40,Transporte
+99 TECNOLOGIA LTDA,-21.00,Transporte
+POSTO SHELL SELECT,-210.00,Transporte
+AUTO POSTO IPIRANGA,-180.00,Transporte
+POSTO PETROBRAS BR,-195.50,Transporte
+SEM PARAR,-62.00,Transporte
+ESTAPAR ESTACIONAMENTOS,-25.00,Transporte
+TOP BILHETE UNICO,-50.00,Transporte
+METRO SP RECARGA,-40.00,Transporte
+ZUL DIGITAL,-12.00,Transporte
+CABIFY,-27.60,Transporte
+Pagamento de boleto - Aluguel Imobiliária Lar,-1800.00,Moradia
+CONDOMINIO EDIFICIO AURORA,-650.00,Moradia
+QUINTOANDAR ALUGUEL,-2100.00,Moradia
+IPTU 2026 PREF SAO PAULO,-145.30,Moradia
+Pagamento de boleto - IMOBILIARIA CENTRAL,-1500.00,Moradia
+ENEL DISTRIBUICAO SP,-142.37,Contas e serviços
+SABESP,-68.90,Contas e serviços
+VIVO FIBRA,-119.99,Contas e serviços
+CLARO NET VIRTUA,-129.90,Contas e serviços
+TIM S A,-59.99,Contas e serviços
+COMGAS,-45.60,Contas e serviços
+CEMIG DISTRIBUICAO,-188.20,Contas e serviços
+LIGHT SERVICOS DE ELETRICIDADE,-165.00,Contas e serviços
+OI FIBRA,-99.90,Contas e serviços
+CPFL PAULISTA,-134.10,Contas e serviços
+DROGASIL 1234,-56.80,Saúde
+DROGA RAIA,-89.40,Saúde
+DROGARIA SAO PAULO,-34.90,Saúde
+PAGUE MENOS,-27.50,Saúde
+UNIMED SEGUROS,-480.00,Saúde
+LAB FLEURY,-210.00,Saúde
+CLINICA SORRISO ODONTOLOGIA,-300.00,Saúde
+SMART FIT,-119.90,Saúde
+HOSPITAL SIRIO LIBANES,-850.00,Saúde
+DR CONSULTA,-129.00,Saúde
+TOTALPASS,-69.90,Saúde
+MERCADO PAGO *ACADEMIA FORMA,-99.00,Saúde
+UDEMY,-27.90,Educação
+ALURA,-129.00,Educação
+COURSERA,-249.00,Educação
+FACULDADE ANHEMBI MORUMBI,-890.00,Educação
+LIVRARIA CULTURA,-79.90,Educação
+CURSO DE INGLES WIZARD,-320.00,Educação
+KUMON VILA MARIANA,-410.00,Educação
+ESTANTE VIRTUAL,-35.00,Educação
+CINEMARK,-64.00,Lazer
+INGRESSO.COM,-120.00,Lazer
+SYMPLA,-80.00,Lazer
+STEAM GAMES,-49.90,Lazer
+PLAYSTATION NETWORK,-229.00,Lazer
+TEATRO RENAULT,-150.00,Lazer
+BOLICHE PLANET BOWLING,-95.00,Lazer
+EVENTIM BRASIL,-380.00,Lazer
+NETFLIX.COM,-44.90,Assinaturas
+Spotify,-21.90,Assinaturas
+AMAZON PRIME BR,-19.90,Assinaturas
+DISNEY PLUS,-43.90,Assinaturas
+HBO MAX,-34.90,Assinaturas
+GLOBOPLAY,-24.90,Assinaturas
+GOOGLE *YouTubePremium,-24.90,Assinaturas
+APPLE.COM/BILL,-9.90,Assinaturas
+DEEZER,-19.90,Assinaturas
+PARAMOUNT+,-19.90,Assinaturas
+GOOGLE ONE,-9.99,Assinaturas
+AMAZON MARKETPLACE,-149.90,Compras
+MERCADOLIVRE*VENDEDOR123,-89.00,Compras
+MAGALU,-1299.00,Compras
+SHOPEE,-56.40,Compras
+ALIEXPRESS,-73.20,Compras
+LOJAS RENNER,-199.90,Compras
+RIACHUELO,-129.90,Compras
+KABUM,-899.00,Compras
+CENTAURO,-349.90,Compras
+C&A MODAS,-119.90,Compras
+DECATHLON,-249.00,Compras
+LOJAS AMERICANAS,-64.90,Compras
+MERCADO PAGO *LOJADOJOAO,-75.00,Compras
+LATAM AIRLINES,-890.50,Viagem
+GOL LINHAS AEREAS,-640.00,Viagem
+AZUL LINHAS AEREAS,-720.00,Viagem
+AIRBNB,-1340.00,Viagem
+BOOKING.COM,-980.00,Viagem
+HOTEL IBIS PAULISTA,-320.00,Viagem
+BUSER,-89.90,Viagem
+IOF COMPRA INTERNACIONAL,-3.42,Impostos e taxas
+TARIFA PACOTE SERVICOS,-29.90,Impostos e taxas
+ANUIDADE CARTAO,-35.00,Impostos e taxas
+JUROS DE MORA,-12.80,Impostos e taxas
+DARF,-450.00,Impostos e taxas
+IPVA 2026,-890.00,Impostos e taxas
+DAS SIMPLES NACIONAL,-76.60,Impostos e taxas
+Pix enviado - Maria Oliveira Souza,-150.00,Transferências
+Pix enviado - Joao Pedro Santos,-80.00,Transferências
+TED enviada - Carlos Lima,-1000.00,Transferências
+Transferência enviada - Ana Paula Ferreira,-300.00,Transferências
+Transferência para conta poupança,-500.00,Transferências
+SAQUE BANCO24HORAS,-200.00,Outros
+SAQUE CAIXA ELETRONICO,-100.00,Outros
+Transferência recebida - Salário ACME Tecnologia Ltda,6500.00,Salário
+PAGAMENTO DE SALARIO,4800.00,Salário
+FOLHA DE PAGAMENTO EMPRESA XYZ,5200.00,Salário
+CREDITO PROVENTOS,3900.00,Salário
+Pix recebido - Cliente Projeto Freelance,1200.00,Renda extra
+Pix recebido - Venda OLX,350.00,Renda extra
+TED recebida - Consultoria Silva,2000.00,Renda extra
+MERCADO LIVRE VENDA,420.00,Renda extra
+Rendimento CDB Nubank,37.45,Rendimentos
+RENDIMENTOS POUPANCA,12.80,Rendimentos
+DIVIDENDOS ITSA4,54.30,Rendimentos
+JUROS SOBRE CAPITAL PROPRIO,21.10,Rendimentos
+Estorno - IFD*IFOOD,45.90,Alimentação
+Estorno - AMAZON MARKETPLACE,149.90,Compras

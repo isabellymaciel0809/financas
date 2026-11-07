@@ -20,6 +20,10 @@ from tests.conftest import FakeLLM
         ("Transferência recebida - Salário ACME", 650000, "Salário"),
         ("Pix enviado - Padaria das Flores", -1200, "Alimentação"),  # "das" não é imposto
         ("Pix enviado - Maria Oliveira", -5000, None),
+        # Regressões encontradas pela avaliação (evals/):
+        ("UBER EATS", -4870, "Alimentação"),  # frase mais longa vence "uber"
+        ("MERCADO PAGO *LOJADOJOAO", -7500, None),  # intermediador não é supermercado
+        ("MERCADO PAGO *ACADEMIA FORMA", -9900, "Saúde"),
         ("Salário devolvido", -1000, None),  # regra de receita não vale para saída
     ],
 )

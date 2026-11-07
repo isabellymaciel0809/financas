@@ -1,6 +1,10 @@
 from app.services.categorizer.defaults import EXPENSE_RULES, INCOME_RULES
 from app.services.text import contains_phrase, simplify
 
+# Intermediadores de pagamento: dizem quem processou a compra, não onde ela foi feita.
+# "MERCADO PAGO *LOJA X" não é supermercado, então o prefixo é removido antes das regras.
+PAYMENT_PROCESSORS = ["mercado pago", "mercadopago", "pagseguro", "sumup", "stone"]
+
 
 def match_rule(description: str, amount_cents: int) -> str | None:
     """Retorna o nome da categoria cuja palavra-chave aparece na descrição.
@@ -9,7 +13,11 @@ def match_rule(description: str, amount_cents: int) -> str | None:
     Em caso de várias correspondências, vence a frase mais longa (mais específica).
     """
     rules = INCOME_RULES if amount_cents > 0 else EXPENSE_RULES
-    text = simplify(description)
+    text = f" {simplify(description)} "
+    for processor in PAYMENT_PROCESSORS:
+        text = text.replace(f" {processor} ", " ")
+    text = text.strip()
+
     best: tuple[int, str] | None = None
     for category, phrases in rules.items():
         for phrase in phrases:

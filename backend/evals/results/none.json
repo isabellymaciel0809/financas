@@ -1,0 +1,1187 @@
+{
+  "meta": {
+    "provider": "none",
+    "model": null,
+    "seconds": 0.06
+  },
+  "summary": {
+    "total": 145,
+    "end_to_end_accuracy": 0.69,
+    "automation_rate": 0.69,
+    "rules": {
+      "coverage": 0.69,
+      "accuracy": 1.0
+    },
+    "llm": {
+      "received": 45,
+      "answered": 0,
+      "accuracy_answered": null,
+      "accuracy_on_leftovers": 0.0,
+      "accuracy_confident": null,
+      "accuracy_unsure": null,
+      "unsure_count": 0
+    }
+  },
+  "predictions": [
+    {
+      "description": "Compra no débito - IFD*IFOOD",
+      "amount_cents": -4590,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "IFD*RESTAURANTE SABOR CASEIRO",
+      "amount_cents": -3850,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "RAPPI*RAPPI BRASIL",
+      "amount_cents": -5230,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "MCDONALDS 0123 SAO PAULO",
+      "amount_cents": -3290,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "BK BRASIL OPERACAO",
+      "amount_cents": -2990,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "PAG*LanchoneteDoBairro",
+      "amount_cents": -1800,
+      "expected": "Alimentação",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "SumUp *PASTELARIA YOKO",
+      "amount_cents": -1400,
+      "expected": "Alimentação",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "OUTBACK SHOPPING ELDORADO",
+      "amount_cents": -18900,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "STARBUCKS VILA OLIMPIA",
+      "amount_cents": -2450,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "PADARIA REAL",
+      "amount_cents": -1240,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ZE DELIVERY",
+      "amount_cents": -6780,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "HABIBS 345",
+      "amount_cents": -4120,
+      "expected": "Alimentação",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "SPOLETO PAULISTA",
+      "amount_cents": -3690,
+      "expected": "Alimentação",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "EC *BOTECO DO JUCA",
+      "amount_cents": -5800,
+      "expected": "Alimentação",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "MP *ACAIDOTIO",
+      "amount_cents": -2200,
+      "expected": "Alimentação",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "COCO BAMBU MORUMBI",
+      "amount_cents": -24500,
+      "expected": "Alimentação",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "UBER EATS",
+      "amount_cents": -4870,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "GIRAFFAS 210",
+      "amount_cents": -3180,
+      "expected": "Alimentação",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "CARREFOUR HIPER 123",
+      "amount_cents": -31245,
+      "expected": "Mercado",
+      "predicted": "Mercado",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "PAO DE ACUCAR-1234",
+      "amount_cents": -15620,
+      "expected": "Mercado",
+      "predicted": "Mercado",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ASSAI ATACADISTA",
+      "amount_cents": -42010,
+      "expected": "Mercado",
+      "predicted": "Mercado",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ATACADAO SA",
+      "amount_cents": -28900,
+      "expected": "Mercado",
+      "predicted": "Mercado",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "DIA BRASIL SOCIEDADE LTDA",
+      "amount_cents": -6435,
+      "expected": "Mercado",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "OBA HORTIFRUTI",
+      "amount_cents": -8890,
+      "expected": "Mercado",
+      "predicted": "Mercado",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SAMS CLUB",
+      "amount_cents": -51000,
+      "expected": "Mercado",
+      "predicted": "Mercado",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ST MARCHE SUPERMERCADOS",
+      "amount_cents": -13460,
+      "expected": "Mercado",
+      "predicted": "Mercado",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "MAMBO SUPERMERCADO",
+      "amount_cents": -9730,
+      "expected": "Mercado",
+      "predicted": "Mercado",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "HIROTA FOOD EXPRESS",
+      "amount_cents": -4320,
+      "expected": "Mercado",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "SONDA SUPERMERCADOS",
+      "amount_cents": -17680,
+      "expected": "Mercado",
+      "predicted": "Mercado",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "EXTRA HIPER 123",
+      "amount_cents": -20140,
+      "expected": "Mercado",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "UBER *TRIP",
+      "amount_cents": -2350,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "UBER *TRIP HELP.UBER.COM",
+      "amount_cents": -1790,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "99APP *99POP",
+      "amount_cents": -1540,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "99 TECNOLOGIA LTDA",
+      "amount_cents": -2100,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "POSTO SHELL SELECT",
+      "amount_cents": -21000,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "AUTO POSTO IPIRANGA",
+      "amount_cents": -18000,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "POSTO PETROBRAS BR",
+      "amount_cents": -19550,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SEM PARAR",
+      "amount_cents": -6200,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ESTAPAR ESTACIONAMENTOS",
+      "amount_cents": -2500,
+      "expected": "Transporte",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "TOP BILHETE UNICO",
+      "amount_cents": -5000,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "METRO SP RECARGA",
+      "amount_cents": -4000,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ZUL DIGITAL",
+      "amount_cents": -1200,
+      "expected": "Transporte",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "CABIFY",
+      "amount_cents": -2760,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "Pagamento de boleto - Aluguel Imobiliária Lar",
+      "amount_cents": -180000,
+      "expected": "Moradia",
+      "predicted": "Moradia",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "CONDOMINIO EDIFICIO AURORA",
+      "amount_cents": -65000,
+      "expected": "Moradia",
+      "predicted": "Moradia",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "QUINTOANDAR ALUGUEL",
+      "amount_cents": -210000,
+      "expected": "Moradia",
+      "predicted": "Moradia",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "IPTU 2026 PREF SAO PAULO",
+      "amount_cents": -14530,
+      "expected": "Moradia",
+      "predicted": "Moradia",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "Pagamento de boleto - IMOBILIARIA CENTRAL",
+      "amount_cents": -150000,
+      "expected": "Moradia",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "ENEL DISTRIBUICAO SP",
+      "amount_cents": -14237,
+      "expected": "Contas e serviços",
+      "predicted": "Contas e serviços",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SABESP",
+      "amount_cents": -6890,
+      "expected": "Contas e serviços",
+      "predicted": "Contas e serviços",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "VIVO FIBRA",
+      "amount_cents": -11999,
+      "expected": "Contas e serviços",
+      "predicted": "Contas e serviços",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "CLARO NET VIRTUA",
+      "amount_cents": -12990,
+      "expected": "Contas e serviços",
+      "predicted": "Contas e serviços",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "TIM S A",
+      "amount_cents": -5999,
+      "expected": "Contas e serviços",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "COMGAS",
+      "amount_cents": -4560,
+      "expected": "Contas e serviços",
+      "predicted": "Contas e serviços",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "CEMIG DISTRIBUICAO",
+      "amount_cents": -18820,
+      "expected": "Contas e serviços",
+      "predicted": "Contas e serviços",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "LIGHT SERVICOS DE ELETRICIDADE",
+      "amount_cents": -16500,
+      "expected": "Contas e serviços",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "OI FIBRA",
+      "amount_cents": -9990,
+      "expected": "Contas e serviços",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "CPFL PAULISTA",
+      "amount_cents": -13410,
+      "expected": "Contas e serviços",
+      "predicted": "Contas e serviços",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "DROGASIL 1234",
+      "amount_cents": -5680,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "DROGA RAIA",
+      "amount_cents": -8940,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "DROGARIA SAO PAULO",
+      "amount_cents": -3490,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "PAGUE MENOS",
+      "amount_cents": -2750,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "UNIMED SEGUROS",
+      "amount_cents": -48000,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "LAB FLEURY",
+      "amount_cents": -21000,
+      "expected": "Saúde",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "CLINICA SORRISO ODONTOLOGIA",
+      "amount_cents": -30000,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SMART FIT",
+      "amount_cents": -11990,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "HOSPITAL SIRIO LIBANES",
+      "amount_cents": -85000,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "DR CONSULTA",
+      "amount_cents": -12900,
+      "expected": "Saúde",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "TOTALPASS",
+      "amount_cents": -6990,
+      "expected": "Saúde",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "MERCADO PAGO *ACADEMIA FORMA",
+      "amount_cents": -9900,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "UDEMY",
+      "amount_cents": -2790,
+      "expected": "Educação",
+      "predicted": "Educação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ALURA",
+      "amount_cents": -12900,
+      "expected": "Educação",
+      "predicted": "Educação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "COURSERA",
+      "amount_cents": -24900,
+      "expected": "Educação",
+      "predicted": "Educação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "FACULDADE ANHEMBI MORUMBI",
+      "amount_cents": -89000,
+      "expected": "Educação",
+      "predicted": "Educação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "LIVRARIA CULTURA",
+      "amount_cents": -7990,
+      "expected": "Educação",
+      "predicted": "Educação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "CURSO DE INGLES WIZARD",
+      "amount_cents": -32000,
+      "expected": "Educação",
+      "predicted": "Educação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "KUMON VILA MARIANA",
+      "amount_cents": -41000,
+      "expected": "Educação",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "ESTANTE VIRTUAL",
+      "amount_cents": -3500,
+      "expected": "Educação",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "CINEMARK",
+      "amount_cents": -6400,
+      "expected": "Lazer",
+      "predicted": "Lazer",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "INGRESSO.COM",
+      "amount_cents": -12000,
+      "expected": "Lazer",
+      "predicted": "Lazer",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SYMPLA",
+      "amount_cents": -8000,
+      "expected": "Lazer",
+      "predicted": "Lazer",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "STEAM GAMES",
+      "amount_cents": -4990,
+      "expected": "Lazer",
+      "predicted": "Lazer",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "PLAYSTATION NETWORK",
+      "amount_cents": -22900,
+      "expected": "Lazer",
+      "predicted": "Lazer",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "TEATRO RENAULT",
+      "amount_cents": -15000,
+      "expected": "Lazer",
+      "predicted": "Lazer",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "BOLICHE PLANET BOWLING",
+      "amount_cents": -9500,
+      "expected": "Lazer",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "EVENTIM BRASIL",
+      "amount_cents": -38000,
+      "expected": "Lazer",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "NETFLIX.COM",
+      "amount_cents": -4490,
+      "expected": "Assinaturas",
+      "predicted": "Assinaturas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "Spotify",
+      "amount_cents": -2190,
+      "expected": "Assinaturas",
+      "predicted": "Assinaturas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "AMAZON PRIME BR",
+      "amount_cents": -1990,
+      "expected": "Assinaturas",
+      "predicted": "Assinaturas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "DISNEY PLUS",
+      "amount_cents": -4390,
+      "expected": "Assinaturas",
+      "predicted": "Assinaturas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "HBO MAX",
+      "amount_cents": -3490,
+      "expected": "Assinaturas",
+      "predicted": "Assinaturas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "GLOBOPLAY",
+      "amount_cents": -2490,
+      "expected": "Assinaturas",
+      "predicted": "Assinaturas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "GOOGLE *YouTubePremium",
+      "amount_cents": -2490,
+      "expected": "Assinaturas",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "APPLE.COM/BILL",
+      "amount_cents": -990,
+      "expected": "Assinaturas",
+      "predicted": "Assinaturas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "DEEZER",
+      "amount_cents": -1990,
+      "expected": "Assinaturas",
+      "predicted": "Assinaturas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "PARAMOUNT+",
+      "amount_cents": -1990,
+      "expected": "Assinaturas",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "GOOGLE ONE",
+      "amount_cents": -999,
+      "expected": "Assinaturas",
+      "predicted": "Assinaturas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "AMAZON MARKETPLACE",
+      "amount_cents": -14990,
+      "expected": "Compras",
+      "predicted": "Compras",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "MERCADOLIVRE*VENDEDOR123",
+      "amount_cents": -8900,
+      "expected": "Compras",
+      "predicted": "Compras",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "MAGALU",
+      "amount_cents": -129900,
+      "expected": "Compras",
+      "predicted": "Compras",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SHOPEE",
+      "amount_cents": -5640,
+      "expected": "Compras",
+      "predicted": "Compras",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ALIEXPRESS",
+      "amount_cents": -7320,
+      "expected": "Compras",
+      "predicted": "Compras",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "LOJAS RENNER",
+      "amount_cents": -19990,
+      "expected": "Compras",
+      "predicted": "Compras",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "RIACHUELO",
+      "amount_cents": -12990,
+      "expected": "Compras",
+      "predicted": "Compras",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "KABUM",
+      "amount_cents": -89900,
+      "expected": "Compras",
+      "predicted": "Compras",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "CENTAURO",
+      "amount_cents": -34990,
+      "expected": "Compras",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "C&A MODAS",
+      "amount_cents": -11990,
+      "expected": "Compras",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "DECATHLON",
+      "amount_cents": -24900,
+      "expected": "Compras",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "LOJAS AMERICANAS",
+      "amount_cents": -6490,
+      "expected": "Compras",
+      "predicted": "Compras",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "MERCADO PAGO *LOJADOJOAO",
+      "amount_cents": -7500,
+      "expected": "Compras",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "LATAM AIRLINES",
+      "amount_cents": -89050,
+      "expected": "Viagem",
+      "predicted": "Viagem",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "GOL LINHAS AEREAS",
+      "amount_cents": -64000,
+      "expected": "Viagem",
+      "predicted": "Viagem",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "AZUL LINHAS AEREAS",
+      "amount_cents": -72000,
+      "expected": "Viagem",
+      "predicted": "Viagem",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "AIRBNB",
+      "amount_cents": -134000,
+      "expected": "Viagem",
+      "predicted": "Viagem",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "BOOKING.COM",
+      "amount_cents": -98000,
+      "expected": "Viagem",
+      "predicted": "Viagem",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "HOTEL IBIS PAULISTA",
+      "amount_cents": -32000,
+      "expected": "Viagem",
+      "predicted": "Viagem",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "BUSER",
+      "amount_cents": -8990,
+      "expected": "Viagem",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "IOF COMPRA INTERNACIONAL",
+      "amount_cents": -342,
+      "expected": "Impostos e taxas",
+      "predicted": "Impostos e taxas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "TARIFA PACOTE SERVICOS",
+      "amount_cents": -2990,
+      "expected": "Impostos e taxas",
+      "predicted": "Impostos e taxas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ANUIDADE CARTAO",
+      "amount_cents": -3500,
+      "expected": "Impostos e taxas",
+      "predicted": "Impostos e taxas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "JUROS DE MORA",
+      "amount_cents": -1280,
+      "expected": "Impostos e taxas",
+      "predicted": "Impostos e taxas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "DARF",
+      "amount_cents": -45000,
+      "expected": "Impostos e taxas",
+      "predicted": "Impostos e taxas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "IPVA 2026",
+      "amount_cents": -89000,
+      "expected": "Impostos e taxas",
+      "predicted": "Impostos e taxas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "DAS SIMPLES NACIONAL",
+      "amount_cents": -7660,
+      "expected": "Impostos e taxas",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "Pix enviado - Maria Oliveira Souza",
+      "amount_cents": -15000,
+      "expected": "Transferências",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "Pix enviado - Joao Pedro Santos",
+      "amount_cents": -8000,
+      "expected": "Transferências",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "TED enviada - Carlos Lima",
+      "amount_cents": -100000,
+      "expected": "Transferências",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "Transferência enviada - Ana Paula Ferreira",
+      "amount_cents": -30000,
+      "expected": "Transferências",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "Transferência para conta poupança",
+      "amount_cents": -50000,
+      "expected": "Transferências",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "SAQUE BANCO24HORAS",
+      "amount_cents": -20000,
+      "expected": "Outros",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "SAQUE CAIXA ELETRONICO",
+      "amount_cents": -10000,
+      "expected": "Outros",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "Transferência recebida - Salário ACME Tecnologia Ltda",
+      "amount_cents": 650000,
+      "expected": "Salário",
+      "predicted": "Salário",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "PAGAMENTO DE SALARIO",
+      "amount_cents": 480000,
+      "expected": "Salário",
+      "predicted": "Salário",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "FOLHA DE PAGAMENTO EMPRESA XYZ",
+      "amount_cents": 520000,
+      "expected": "Salário",
+      "predicted": "Salário",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "CREDITO PROVENTOS",
+      "amount_cents": 390000,
+      "expected": "Salário",
+      "predicted": "Salário",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "Pix recebido - Cliente Projeto Freelance",
+      "amount_cents": 120000,
+      "expected": "Renda extra",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "Pix recebido - Venda OLX",
+      "amount_cents": 35000,
+      "expected": "Renda extra",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "TED recebida - Consultoria Silva",
+      "amount_cents": 200000,
+      "expected": "Renda extra",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "MERCADO LIVRE VENDA",
+      "amount_cents": 42000,
+      "expected": "Renda extra",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "Rendimento CDB Nubank",
+      "amount_cents": 3745,
+      "expected": "Rendimentos",
+      "predicted": "Rendimentos",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "RENDIMENTOS POUPANCA",
+      "amount_cents": 1280,
+      "expected": "Rendimentos",
+      "predicted": "Rendimentos",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "DIVIDENDOS ITSA4",
+      "amount_cents": 5430,
+      "expected": "Rendimentos",
+      "predicted": "Rendimentos",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "JUROS SOBRE CAPITAL PROPRIO",
+      "amount_cents": 2110,
+      "expected": "Rendimentos",
+      "predicted": "Rendimentos",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "Estorno - IFD*IFOOD",
+      "amount_cents": 4590,
+      "expected": "Alimentação",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "Estorno - AMAZON MARKETPLACE",
+      "amount_cents": 14990,
+      "expected": "Compras",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    }
+  ]
+}
