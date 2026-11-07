@@ -327,6 +327,7 @@ export interface SpreadsheetImportResult {
   sheet: string;
   imported: number;
   duplicates: number;
+  already_in_system: number;
   skipped: number;
   skipped_rows: number[];
 }

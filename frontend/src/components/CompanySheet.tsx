@@ -59,8 +59,8 @@ export default function CompanySheet({ notify, onClose }: { notify: Notify; onCl
           <div>
             <p className="font-medium text-slate-800">1. Carregar dados da planilha</p>
             <p className="text-sm text-slate-500">
-              Traz o histórico para o sistema. Cada linha vira um lançamento confirmado. Enviar o mesmo arquivo de novo
-              não duplica nada.
+              Traz o histórico para o sistema. Cada linha vira um lançamento confirmado. Linhas que já foram importadas
+              ou que já estão lançadas no sistema não são duplicadas.
             </p>
           </div>
           <button
@@ -72,7 +72,8 @@ export default function CompanySheet({ notify, onClose }: { notify: Notify; onCl
           </button>
           {imported && (
             <p className="text-xs text-slate-600">
-              {imported.imported} carregada(s), {imported.duplicates} já existia(m)
+              {imported.imported} carregada(s), {imported.duplicates} já importada(s) antes
+              {imported.already_in_system > 0 && `, ${imported.already_in_system} já lançada(s) no sistema`}
               {imported.skipped > 0 &&
                 `, ${imported.skipped} ignorada(s) (linhas ${imported.skipped_rows.join(", ")}${imported.skipped > imported.skipped_rows.length ? "..." : ""}: total ou sem data/valor)`}
               .

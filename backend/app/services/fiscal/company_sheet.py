@@ -72,7 +72,8 @@ class SheetRow:
 class ImportReport:
     sheet: str
     imported: int = 0
-    duplicates: int = 0
+    duplicates: int = 0  # já importadas antes, desta ou de outra planilha
+    already_in_system: int = 0  # já lançadas no sistema (nota, cupom ou manual)
     skipped: int = 0
     skipped_rows: list[int] = field(default_factory=list)
 
@@ -151,6 +152,10 @@ def import_sheet(db: Session, content: bytes) -> ImportReport:
     rows, skipped = read_rows(table)
     report = ImportReport(sheet=table.ws.title, skipped=len(skipped), skipped_rows=skipped[:20])
 
+    # Lançamentos feitos no sistema (nota, cupom, manual) que a planilha também pode conter,
+    # por exemplo quando ela é o Excel exportado pelo próprio sistema.
+    in_system = _system_entries(db)
+
     seen: Counter[tuple] = Counter()
     created: list[ExpenseItem] = []
     for row in rows:
@@ -162,6 +167,11 @@ def import_sheet(db: Session, content: bytes) -> ImportReport:
         key = hashlib.sha256(repr((*signature, seen[signature])).encode()).hexdigest()
         if db.scalar(select(Expense.id).where(Expense.import_key == key)):
             report.duplicates += 1
+            continue
+        same = match_key(row.date, row.description, row.cents)
+        if in_system[same] > 0:
+            in_system[same] -= 1
+            report.already_in_system += 1
             continue
         expense = Expense(
             source=ExpenseSource.manual,
@@ -186,6 +196,20 @@ def import_sheet(db: Session, content: bytes) -> ImportReport:
     categorize_items(db, [i for i in created if i.expense.entry_type != "Receita"], provider=None)
     db.commit()
     return report
+
+
+def _system_entries(db: Session) -> Counter[tuple]:
+    entries: Counter[tuple] = Counter()
+    query = select(Expense).where(
+        Expense.import_key.is_(None),
+        Expense.status.in_([ExpenseStatus.confirmed, ExpenseStatus.needs_review]),
+    )
+    for expense in db.scalars(query).unique():
+        for item in expense.items:
+            entries[
+                match_key(expense.issue_date or date.min, item.description, item.total_cents)
+            ] += 1
+    return entries
 
 
 # --- atualizar a planilha da empresa ---------------------------------------------------------

@@ -62,6 +62,7 @@ def test_importa_historico_da_planilha(client):
         "sheet": "Controle",
         "imported": 5,
         "duplicates": 0,
+        "already_in_system": 0,
         "skipped": 1,  # a linha de TOTAL
         "skipped_rows": [9],
     }
@@ -131,3 +132,24 @@ def test_atualiza_a_planilha_da_empresa_sem_repetir_linhas(client):
     assert ws.cell(9, 1).number_format == "DD/MM/YYYY"  # formato copiado da linha de cima
     # ...e o TOTAL desceu uma linha, com a soma estendida para incluir a linha nova.
     assert [c.value for c in ws[10]][4:] == ["TOTAL", None, "=SUM(G4:G9)"]
+
+
+def test_importar_o_proprio_excel_exportado_nao_duplica(client):
+    """Bug real: a planilha enviada era o Excel exportado pelo sistema, com um lançamento
+    manual que já existia, e ele foi importado de novo como duplicata."""
+    others = next(c["id"] for c in client.get("/api/categories").json() if c["name"] == "Outros")
+    manual = client.post(
+        "/api/expenses",
+        json={
+            "issue_date": "2026-11-05",
+            "description": "Pagamento",
+            "items": [{"description": "Pagamento", "total_cents": 160000, "category_id": others}],
+        },
+    ).json()
+    assert manual["status"] == "confirmed"  # só confirmados vão para a exportação
+    exported = client.get("/api/expenses/export.xlsx", params={"month": "2026-11"}).content
+
+    result = _import(client, exported).json()
+    assert result["imported"] == 0
+    assert result["already_in_system"] == 1
+    assert len(client.get("/api/expenses").json()) == 1
