@@ -264,3 +264,58 @@ export const expensesApi = {
   updateEmployee: (id: number, data: Omit<Employee, "id">) =>
     request<Employee>(`/employees/${id}`, json("PUT", data)),
 };
+
+// --- Tela de itens (todos os itens de todas as notas) ----------------------------------------
+
+export interface ItemRow {
+  id: number;
+  expense_id: number;
+  expense_status: ExpenseStatus;
+  issue_date: string | null;
+  counterpart: string | null;
+  proposal: string | null;
+  description: string;
+  entry_type: string;
+  category: Category | null;
+  quantity: number;
+  unit: string | null;
+  unit_price_cents: number | null;
+  total_cents: number;
+}
+
+export interface GroupTotal {
+  name: string;
+  total_cents: number;
+  count: number;
+}
+
+export interface ItemsReport {
+  items: ItemRow[];
+  count: number;
+  total_cents: number;
+  by_type: GroupTotal[];
+  by_category: GroupTotal[];
+  truncated: boolean;
+}
+
+export interface ItemFilters {
+  month?: string;
+  proposal?: string;
+  entry_type?: string;
+  category_id?: number;
+  search?: string;
+  only_confirmed?: boolean;
+}
+
+const itemParams = (filters: ItemFilters) => {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== "" && value !== false) params.set(key, String(value));
+  });
+  return params.toString();
+};
+
+export const itemsApi = {
+  list: (filters: ItemFilters) => request<ItemsReport>(`/expenses/items?${itemParams(filters)}`),
+  exportUrl: (filters: ItemFilters) => `/api/expenses/items/export.xlsx?${itemParams(filters)}`,
+};

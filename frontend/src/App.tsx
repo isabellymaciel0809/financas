@@ -5,6 +5,7 @@ import {
   Loader2,
   MessageCircle,
   Receipt,
+  Table,
   Upload,
   Users,
   Wallet,
@@ -16,15 +17,24 @@ import Assistant from "./pages/Assistant";
 import Dashboard from "./pages/Dashboard";
 import Employees from "./pages/Employees";
 import Expenses from "./pages/Expenses";
+import Items from "./pages/Items";
 import ImportPage from "./pages/Import";
 import Transactions from "./pages/Transactions";
 
-export type Page = "expenses" | "employees" | "dashboard" | "transactions" | "assistant" | "import";
+export type Page =
+  | "expenses"
+  | "items"
+  | "employees"
+  | "dashboard"
+  | "transactions"
+  | "assistant"
+  | "import";
 export type Notify = (message: string, tone?: "success" | "error") => void;
 export type OnQueued = (queued: number) => void;
 
 const NAV: { id: Page; label: string; icon: typeof Wallet }[] = [
   { id: "expenses", label: "Lançamentos", icon: Receipt },
+  { id: "items", label: "Itens", icon: Table },
   { id: "employees", label: "Funcionários", icon: Users },
   { id: "dashboard", label: "Visão geral", icon: LayoutDashboard },
   { id: "transactions", label: "Extrato", icon: ListOrdered },
@@ -108,6 +118,7 @@ export default function App() {
 
       <main className="mx-auto max-w-6xl px-4 py-6">
         {page === "expenses" && <Expenses notify={notify} />}
+        {page === "items" && <Items notify={notify} />}
         {page === "employees" && <Employees notify={notify} />}
         {page === "dashboard" && <Dashboard onNavigate={setPage} notify={notify} onQueued={job.watch} />}
         {page === "transactions" && (

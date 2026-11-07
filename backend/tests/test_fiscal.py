@@ -389,3 +389,100 @@ def test_apply_extraction_sem_itens_vai_para_revisao(db):
     processor.apply_extraction(db, expense, ExtractedDocument(total_cents=1000), provider=None)
     assert expense.status == ExpenseStatus.needs_review
     assert "Nenhum item foi identificado." in expense.issues
+
+
+# --- tela de itens ---------------------------------------------------------------------------
+
+
+def _seed_items(client):
+    """Nota da Frigelar para a P-123, internet do escritório e o pagamento do cliente."""
+    nota = client.post(
+        "/api/expenses/upload",
+        files=[("files", ("nota.xml", make_nfe_xml(freight="0.00")))],
+        data={"proposal": "P-123"},
+    ).json()[0]["id"]
+    client.post(f"/api/expenses/{nota}/confirm")
+    client.post(
+        "/api/expenses",
+        json={
+            "issue_date": "2026-11-10",
+            "description": "Internet do escritório",
+            "supplier_name": "Vivo",
+            "items": [{"description": "Vivo Fibra Internet", "total_cents": 12000}],
+        },
+    )
+    receita = next(
+        c["id"] for c in client.get("/api/categories").json() if c["name"] == "Receita de serviços"
+    )
+    client.post(
+        "/api/expenses",
+        json={
+            "issue_date": "2026-11-20",
+            "description": "Instalação",
+            "proposal": "P-123",
+            "entry_type": "Receita",
+            "items": [{"description": "Instalação", "total_cents": 150000, "category_id": receita}],
+        },
+    )
+
+
+def _items(client, **params):
+    return client.get("/api/expenses/items", params=params).json()
+
+
+def test_itens_por_proposta(client):
+    _seed_items(client)
+    report = _items(client, proposal="P-123", entry_type="Custo")
+    assert [i["description"] for i in report["items"]] == [
+        "FITA PVC 10M LINEAR",
+        "MANOMETRO ALTA R22/134A",
+    ]
+    assert report["total_cents"] == 5330
+    assert report["items"][0]["counterpart"] == "FRIGELAR"
+
+
+def test_itens_busca_por_descricao(client):
+    _seed_items(client)
+    report = _items(client, search="fita", month="2026-11")
+    assert report["count"] == 1
+    assert report["total_cents"] == 2830
+
+
+def test_itens_custo_x_despesas_no_mes(client):
+    _seed_items(client)
+    report = _items(client, month="2026-11")
+    by_type = {g["name"]: g["total_cents"] for g in report["by_type"]}
+    assert by_type == {"Receita": 150000, "Despesas": 12000, "Custo": 5330}
+    by_category = {g["name"]: g["total_cents"] for g in report["by_category"]}
+    assert by_category["Contas e serviços"] == 12000  # "vivo"/"internet" pelas regras
+
+
+def test_itens_filtro_por_categoria_e_so_confirmados(client):
+    _seed_items(client)
+    tools = next(
+        c["id"]
+        for c in client.get("/api/categories").json()
+        if c["name"] == "Ferramentas e equipamentos"
+    )
+    assert _items(client, category_id=tools)["count"] == 1
+    # Nota em revisão aparece por padrão, mas some com "só confirmados".
+    pending = client.post(
+        "/api/expenses/upload",
+        files=[("files", ("outra.xml", make_nfe_xml(key=make_key(number=777))))],
+    ).json()[0]["id"]
+    assert client.get(f"/api/expenses/{pending}").json()["status"] == "needs_review"
+    assert _items(client, search="manometro")["count"] == 2
+    assert _items(client, search="manometro", only_confirmed=True)["count"] == 1
+
+
+def test_exporta_itens_filtrados_com_total(client):
+    _seed_items(client)
+    response = client.get(
+        "/api/expenses/items/export.xlsx", params={"proposal": "P-123", "entry_type": "Custo"}
+    )
+    sheet = load_workbook(io.BytesIO(response.content))["Planilha"]
+    rows = [
+        [c.value for c in row] for row in sheet.iter_rows(min_row=2) if any(c.value for c in row)
+    ]
+    assert [r[4] for r in rows[:2]] == ["FITA PVC 10M LINEAR", "MANOMETRO ALTA R22/134A"]
+    assert rows[-1][0] == "Total" and rows[-1][4] == "2 itens" and rows[-1][6] == 53.3

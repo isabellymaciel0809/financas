@@ -37,13 +37,15 @@ from app.schemas import (
     ExpenseQueueStatus,
     ExpenseSummary,
     ExpenseUpdate,
+    ItemsReport,
     ManualExpenseCreate,
 )
 from app.services.categorizer.llm import LLMProvider
 from app.services.categorizer.pipeline import remember
 from app.services.fiscal.entry_types import INCOME_TYPES, default_entry_type
-from app.services.fiscal.export import build_workbook
+from app.services.fiscal.export import build_items_workbook, build_workbook
 from app.services.fiscal.items import categorize_items
+from app.services.fiscal.items_report import ItemFilters, build_report, query_items, to_row
 from app.services.fiscal.processor import expense_queue, revalidate, upload_dir, upsert_supplier
 from app.services.text import merchant_key
 
@@ -171,6 +173,37 @@ def export(
     name = f"lancamentos-{month or date.today().isoformat()}.xlsx"
     return Response(
         build_workbook(expenses),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
+
+
+def _item_filters(
+    month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
+    proposal: str | None = Query(None, max_length=40),
+    entry_type: str | None = Query(None, max_length=30),
+    category_id: int | None = None,
+    search: str | None = Query(None, max_length=100),
+    only_confirmed: bool = False,
+) -> ItemFilters:
+    return ItemFilters(
+        month, proposal or None, entry_type or None, category_id, search, only_confirmed
+    )
+
+
+@router.get("/items", response_model=ItemsReport)
+def list_items(filters: ItemFilters = Depends(_item_filters), db: Session = Depends(get_db)):
+    """Todos os itens de todas as notas, filtrados, com totais por tipo e por categoria."""
+    return build_report(db, filters)
+
+
+@router.get("/items/export.xlsx")
+def export_items(filters: ItemFilters = Depends(_item_filters), db: Session = Depends(get_db)):
+    """Exporta exatamente o que está filtrado na tela de itens, no formato da planilha."""
+    rows = [to_row(item, expense) for item, expense in query_items(db, filters)]
+    name = f"itens-{filters.month or date.today().isoformat()}.xlsx"
+    return Response(
+        build_items_workbook(rows),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )

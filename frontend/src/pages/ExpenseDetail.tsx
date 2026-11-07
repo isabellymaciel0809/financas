@@ -86,6 +86,7 @@ export default function ExpenseDetail({ id, onBack, notify }: { id: number; onBa
   const refresh = (updated: Detail) => {
     queryClient.setQueryData(["expense", id], updated);
     queryClient.invalidateQueries({ queryKey: ["expenses"] });
+    queryClient.invalidateQueries({ queryKey: ["items"] });
     setDirty(false);
   };
   const onError = (error: Error) => notify(error.message, "error");

@@ -226,3 +226,36 @@ class ManualExpenseCreate(BaseModel):
 class ExpenseQueueStatus(BaseModel):
     running: bool
     processing: int
+
+
+class ItemRow(BaseModel):
+    """Um item de lançamento com os dados da nota, no formato da planilha."""
+
+    id: int
+    expense_id: int
+    expense_status: ExpenseStatus
+    issue_date: date | None
+    counterpart: str | None
+    proposal: str | None
+    description: str
+    entry_type: str
+    category: CategoryOut | None
+    quantity: float
+    unit: str | None
+    unit_price_cents: int | None
+    total_cents: int
+
+
+class GroupTotal(BaseModel):
+    name: str
+    total_cents: int
+    count: int
+
+
+class ItemsReport(BaseModel):
+    items: list[ItemRow]
+    count: int
+    total_cents: int
+    by_type: list[GroupTotal]
+    by_category: list[GroupTotal]
+    truncated: bool

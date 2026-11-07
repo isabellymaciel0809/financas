@@ -25,6 +25,9 @@ sem API paga, e os documentos fiscais não saem do computador.
 - **Revisão** com a foto ao lado dos dados extraídos e a soma conferida enquanto se edita.
 - **Categorias por item** com a mesma cascata da IA (memória → regras → LLM); cada correção vira
   memória para as próximas notas.
+- **Tela de itens**: todos os itens de todas as notas numa tabela, com filtros (mês, proposta,
+  tipo, categoria, busca), totais por tipo e por categoria e exportação do que está filtrado.
+  Responde "quanto gastei de tubo de cobre este mês?" ou "quais materiais foram para a P-123?".
 - **Proposta/obra e Tipo** (Custo, Despesas, Estoque, Receita, Caixa) em cada lançamento: o
   material comprado para uma obra vira custo daquela proposta.
 - **Exportação para Excel no formato da planilha da empresa** (`Data | Mês | Cliente/Fornecedor |
@@ -260,7 +263,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 91 testes: notas e cupons, planilha, migrações, categorização, assistente e API
+pytest          # 96 testes: notas e cupons, planilha, itens, migrações, categorização, assistente e API
 ruff check .
 ```
 

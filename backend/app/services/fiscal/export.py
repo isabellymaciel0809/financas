@@ -8,6 +8,7 @@ import io
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date
+from typing import TYPE_CHECKING
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
@@ -17,6 +18,9 @@ from openpyxl.worksheet.worksheet import Worksheet
 from app.models import Expense, ExpenseSource, ExpenseStatus
 from app.services.fiscal.entry_types import INCOME_TYPES
 from app.services.fiscal.keys import format_cnpj
+
+if TYPE_CHECKING:
+    from app.schemas import ItemRow
 
 MONEY = "#,##0.00"
 DATE = "DD/MM/YYYY"
@@ -61,6 +65,51 @@ def _sheet(
     ws.auto_filter.ref = ws.dimensions
 
 
+PLANILHA_HEADERS = [
+    "Data", "Mês", "Cliente/Fornecedor", "Proposta", "Descrição", "Tipo", "Valor (R$)",
+]  # fmt: skip
+
+
+def build_items_workbook(rows: Sequence["ItemRow"]) -> bytes:
+    """Só a aba no formato da planilha, com os itens filtrados e uma linha de total."""
+    wb = Workbook()
+    sheet = wb.active
+    sheet.title = "Planilha"
+    data = [
+        [
+            r.issue_date,
+            r.issue_date.replace(day=1) if r.issue_date else None,
+            r.counterpart or "",
+            r.proposal or "",
+            r.description,
+            r.entry_type,
+            r.total_cents / 100,
+        ]
+        for r in rows
+    ]
+    _sheet(sheet, PLANILHA_HEADERS, data, {1: DATE, 2: MONTH, 7: MONEY})
+    sheet.append([])
+    sheet.append(
+        [
+            "Total",
+            None,
+            None,
+            None,
+            f"{len(rows)} itens",
+            None,
+            sum(r.total_cents for r in rows) / 100,
+        ]
+    )
+    total_row = sheet.max_row
+    for cell in sheet[total_row]:
+        cell.font = Font(bold=True)
+    sheet.cell(total_row, 7).number_format = MONEY
+    sheet.auto_filter.ref = f"A1:G{len(rows) + 1}"  # o filtro não inclui a linha de total
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
 def _counterpart(e: Expense) -> str:
     return e.supplier.name if e.supplier else ""
 
@@ -89,7 +138,7 @@ def build_workbook(expenses: Sequence[Expense]) -> bytes:
     sheet.title = "Planilha"
     _sheet(
         sheet,
-        ["Data", "Mês", "Cliente/Fornecedor", "Proposta", "Descrição", "Tipo", "Valor (R$)"],
+        PLANILHA_HEADERS,
         rows,
         {1: DATE, 2: MONTH, 7: MONEY},
     )
