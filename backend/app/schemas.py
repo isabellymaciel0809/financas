@@ -267,6 +267,7 @@ class SpreadsheetImportResult(BaseModel):
     imported: int
     duplicates: int
     already_in_system: int
+    needs_review: int
     skipped: int
     skipped_rows: list[int]
     skip_reasons: dict[str, int]

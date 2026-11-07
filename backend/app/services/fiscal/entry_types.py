@@ -8,8 +8,10 @@ entraria na conta.
 # Sugestões exibidas na interface; o campo aceita outros valores.
 ENTRY_TYPES = ["Custo", "Despesa", "Estoque", "Receita", "Caixa", "Bens", "Diaria", "Dedução"]
 INCOME_TYPES = {"Receita"}
-# Linhas de controle da planilha: não são entradas nem saídas.
-NEUTRAL_TYPES = {"Saldo inicial", "Saldo final"}
+# Linha da planilha sem Tipo: a planilha não a conta em nenhum total, então o sistema também não.
+MISSING_TYPE = "Sem tipo"
+# Linhas de controle da planilha e linhas sem tipo: não são entradas nem saídas.
+NEUTRAL_TYPES = {"Saldo inicial", "Saldo final", MISSING_TYPE}
 
 
 def default_entry_type(proposal: str | None) -> str:

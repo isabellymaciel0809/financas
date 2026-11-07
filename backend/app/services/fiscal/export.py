@@ -16,7 +16,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from app.models import Expense, ExpenseSource, ExpenseStatus
-from app.services.fiscal.entry_types import INCOME_TYPES
+from app.services.fiscal.entry_types import INCOME_TYPES, NEUTRAL_TYPES
 from app.services.fiscal.keys import format_cnpj
 
 if TYPE_CHECKING:
@@ -150,7 +150,7 @@ def build_workbook(expenses: Sequence[Expense]) -> bytes:
     proposal_rows = []
     for proposal, totals in sorted(by_proposal.items(), key=lambda kv: kv[0] == NO_PROPOSAL):
         income = sum(v for k, v in totals.items() if k in INCOME_TYPES)
-        spent = sum(v for k, v in totals.items() if k not in INCOME_TYPES)
+        spent = sum(v for k, v in totals.items() if k not in INCOME_TYPES | NEUTRAL_TYPES)
         proposal_rows.append(
             [
                 proposal,

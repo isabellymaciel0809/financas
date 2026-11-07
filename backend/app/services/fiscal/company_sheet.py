@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Expense, ExpenseItem, ExpenseSource, ExpenseStatus
 from app.routers.dashboard import month_range
+from app.services.fiscal.entry_types import MISSING_TYPE
 from app.services.fiscal.importer_utils import parse_cell_amount, parse_cell_date
 from app.services.fiscal.items import categorize_items
 from app.services.fiscal.processor import upsert_supplier
@@ -56,6 +57,9 @@ class Table:
     columns: dict[str, int]  # campo -> número da coluna (1 = A)
 
 
+MISSING_DESCRIPTION = "(sem descrição na planilha)"
+
+
 @dataclass
 class SheetRow:
     row: int
@@ -65,6 +69,7 @@ class SheetRow:
     description: str
     entry_type: str
     cents: int
+    warnings: list[str] = field(default_factory=list)  # vira revisão no sistema
 
 
 @dataclass
@@ -73,6 +78,7 @@ class ImportReport:
     imported: int = 0
     duplicates: int = 0  # já importadas antes, desta ou de outra planilha
     already_in_system: int = 0  # já lançadas no sistema (nota, cupom ou manual)
+    needs_review: int = 0  # importadas, mas incompletas na planilha (sem tipo/descrição)
     skipped: int = 0
     skipped_rows: list[int] = field(default_factory=list)
     skip_reasons: dict[str, int] = field(default_factory=dict)  # motivo -> quantas linhas
@@ -142,8 +148,7 @@ def skip_reason(raw_date: Any, raw_value: Any, description: Any) -> str | None:
         return "sem valor"
     if parse_cell_amount(raw_value) is None:
         return "valor não reconhecido"
-    if not str(description or "").strip():
-        return "sem descrição"
+    # Sem descrição NÃO é motivo para descartar: a linha tem data e valor, e a planilha a soma.
     return None
 
 
@@ -176,15 +181,27 @@ def read_rows(
             continue
         parsed_date, cents = parse_cell_date(raw_date), parse_cell_amount(raw_value)
         assert parsed_date is not None and cents is not None  # garantido por skip_reason
+        text = str(description or "").strip()
+        entry_type = _text(cell("entry_type"))
+        warnings = []
+        if not text:
+            warnings.append(f"Linha {r} da planilha sem descrição.")
+        if not entry_type:
+            # Não inventa um tipo: a planilha também não conta esta linha em nenhum total.
+            warnings.append(
+                f"Linha {r} da planilha sem Tipo: ela não entra no DRE nem no Dashboard da "
+                "planilha. Defina o tipo aqui e na planilha."
+            )
         rows.append(
             SheetRow(
                 row=r,
                 date=parsed_date,
                 counterpart=_text(cell("counterpart")),
                 proposal=_text(cell("proposal")),
-                description=str(description).strip()[:255],
-                entry_type=_text(cell("entry_type")) or "Despesa",
-                cents=abs(cents),
+                description=(text or MISSING_DESCRIPTION)[:255],
+                entry_type=entry_type or MISSING_TYPE,
+                cents=cents,  # mantém o sinal da planilha (estornos negativos continuam negativos)
+                warnings=warnings,
             )
         )
     return rows, skipped
@@ -239,7 +256,9 @@ def import_sheet(db: Session, content: bytes, filename: str = "planilha.xlsx") -
             continue
         expense = Expense(
             source=ExpenseSource.manual,
-            status=ExpenseStatus.confirmed,  # já estava na planilha: foi conferido por alguém
+            # Já estava na planilha: foi conferido por alguém. Só vai para revisão o que a
+            # própria planilha deixou incompleto (sem tipo ou sem descrição).
+            status=ExpenseStatus.needs_review if row.warnings else ExpenseStatus.confirmed,
             description=row.description,
             issue_date=row.date,
             total_cents=row.cents,
@@ -247,8 +266,10 @@ def import_sheet(db: Session, content: bytes, filename: str = "planilha.xlsx") -
             entry_type=row.entry_type,
             supplier=upsert_supplier(db, None, row.counterpart),
             import_key=key,
-            issues=[],
+            issues=row.warnings,
         )
+        if row.warnings:
+            report.needs_review += 1
         item = ExpenseItem(position=1, description=row.description, total_cents=row.cents)
         expense.items = [item]
         db.add(expense)

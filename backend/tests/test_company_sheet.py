@@ -65,6 +65,7 @@ def test_importa_historico_da_planilha(client):
         "imported": 5,
         "duplicates": 0,
         "already_in_system": 0,
+        "needs_review": 0,
         "skipped": 1,  # a linha de TOTAL
         "skipped_rows": [9],
         # O openpyxl não salva o resultado das fórmulas; o Excel salvaria.
@@ -278,3 +279,32 @@ def test_xlsm_volta_como_xlsm(client):
     assert response.status_code == 200
     assert "controle-atualizada.xlsm" in response.headers["content-disposition"]
     assert "macroEnabled" in response.headers["content-type"]
+
+
+def test_linhas_incompletas_da_planilha_vao_para_revisao_sem_inventar_dados(client):
+    """Casos reais da planilha da empresa: linha sem Tipo (que a planilha não soma em lugar
+    nenhum) e linha sem descrição (que a planilha soma)."""
+    wb = Workbook()
+    ws = wb.active
+    ws.append(HEADERS)
+    ws.append([datetime(2026, 4, 9), 4, None, None, "Resgaste Caixinha", None, 5500])
+    ws.append([datetime(2026, 3, 11), 3, None, None, None, "Despesa", 15.99])
+    buffer = io.BytesIO()
+    wb.save(buffer)
+
+    result = _import(client, buffer.getvalue()).json()
+    assert (result["imported"], result["needs_review"], result["skipped"]) == (2, 2, 0)
+
+    rows = {r["descricao"]: r for r in client.get("/api/bi/lancamentos.json").json()}
+    caixinha = rows["Resgaste Caixinha"]
+    assert (caixinha["tipo"], caixinha["sentido"], caixinha["valor_com_sinal"]) == (
+        "Sem tipo",  # não vira "Despesa" por padrão
+        "Neutro",
+        0,
+    )
+    sem_descricao = rows["(sem descrição na planilha)"]
+    assert (sem_descricao["tipo"], sem_descricao["valor"]) == ("Despesa", 15.99)
+    assert all(r["status"] == "Em revisão" for r in rows.values())
+
+    issues = [e["issues"] for e in client.get("/api/expenses").json()]
+    assert any("sem Tipo" in i for issue in issues for i in issue)
