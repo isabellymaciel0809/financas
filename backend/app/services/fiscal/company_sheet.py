@@ -11,6 +11,7 @@ Colunas: Data | Mês | Cliente/Fornecedor | Proposta | Descrição | Tipo | Valo
 
 import hashlib
 import io
+import logging
 import re
 from collections import Counter
 from copy import copy
@@ -40,6 +41,8 @@ HEADER_ALIASES = {
     "entry_type": {"tipo"},
     "value": {"valor r", "valor", "valor rs", "valor em r"},
 }
+logger = logging.getLogger(__name__)
+
 REQUIRED = {"date", "description", "value"}
 MAX_HEADER_SCAN = 20
 # Formato para células novas quando a planilha não tem uma linha anterior para copiar.
@@ -78,24 +81,46 @@ class ImportReport:
     skipped_rows: list[int] = field(default_factory=list)
 
 
+FIELD_LABELS = {"date": "Data", "description": "Descrição", "value": "Valor"}
+
+
 def find_table(workbook) -> Table:
-    """Procura, em todas as abas, a linha de cabeçalho com Data, Descrição e Valor."""
+    """Procura, em todas as abas, a linha de cabeçalho com Data, Descrição e Valor.
+
+    Se não encontrar, explica o que achou (cabeçalho mais provável e o que falta), para a
+    pessoa ou o desenvolvedor ajustarem sem precisar abrir o arquivo.
+    """
+    best: tuple[int, str, int, list[str], set[str]] | None = None
     for ws in workbook.worksheets:
         for row in range(1, min(ws.max_row, MAX_HEADER_SCAN) + 1):
             columns: dict[str, int] = {}
-            for col in range(1, ws.max_column + 1):
+            texts: list[str] = []
+            for col in range(1, min(ws.max_column, 40) + 1):
                 value = ws.cell(row, col).value
-                if not isinstance(value, str):
+                if not isinstance(value, str) or not value.strip():
                     continue
+                texts.append(value.strip())
                 name = simplify(value)
                 for key, aliases in HEADER_ALIASES.items():
                     if name in aliases and key not in columns:
                         columns[key] = col
             if columns.keys() >= REQUIRED:
                 return Table(ws, row, columns)
-    raise SheetFormatError(
-        "Não encontrei a tabela na planilha: preciso de colunas Data, Descrição e Valor."
-    )
+            score = len(columns) * 10 + len(texts)
+            if texts and (best is None or score > best[0]):
+                best = (score, ws.title, row, texts, REQUIRED - columns.keys())
+
+    if best is None:
+        message = "Não encontrei nenhum texto de cabeçalho nas primeiras linhas da planilha."
+    else:
+        _, sheet, row, texts, missing = best
+        message = (
+            f'Não reconheci a tabela. Na aba "{sheet}", o cabeçalho mais provável (linha {row}) '
+            f"tem: {', '.join(texts[:12])}. Faltam colunas de: "
+            f"{', '.join(FIELD_LABELS[m] for m in sorted(missing))}."
+        )
+    logger.info("Planilha não reconhecida: %s", message)  # só cabeçalhos, nenhum valor
+    raise SheetFormatError(message)
 
 
 def _value(table: Table, row: int, key: str) -> Any:

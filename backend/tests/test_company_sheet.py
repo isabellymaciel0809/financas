@@ -94,7 +94,10 @@ def test_planilha_sem_as_colunas(client):
     wb.save(buffer)
     response = _import(client, buffer.getvalue())
     assert response.status_code == 422
-    assert "Data, Descrição e Valor" in response.json()["detail"]
+    detail = response.json()["detail"]
+    # A mensagem diz o que encontrou e o que falta, para dar para ajustar sem abrir o arquivo.
+    assert "Nome, Idade" in detail
+    assert "Faltam colunas de: Data, Descrição, Valor" in detail
     assert _import(client, b"x", "planilha.csv").status_code == 415
 
 

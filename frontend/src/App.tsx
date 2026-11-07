@@ -60,7 +60,8 @@ export default function App() {
 
   useEffect(() => {
     if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 4000);
+    // Erros ficam mais tempo: costumam explicar o que fazer.
+    const timer = setTimeout(() => setToast(null), toast.tone === "error" ? 10000 : 4000);
     return () => clearTimeout(timer);
   }, [toast]);
 
