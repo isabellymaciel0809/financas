@@ -150,6 +150,10 @@ class LLMProvider(Protocol):
         execute: ToolExecutor,
     ) -> ChatResult: ...
 
+    def extract_json(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
+        """Extração estruturada: a resposta é forçada a seguir o JSON Schema."""
+        ...
+
 
 # --- Ollama ----------------------------------------------------------------------------------
 
@@ -220,6 +224,25 @@ class OllamaProvider:
         try:
             return CategorizationOutput.model_validate_json(message.get("content", "")).results
         except ValidationError as exc:
+            raise LLMError(f"Resposta inválida do Ollama: {exc}") from exc
+
+    def extract_json(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
+        message = self._chat(
+            {
+                "format": schema,
+                # Contexto maior: o texto de um cupom longo + a resposta passam de 4 mil tokens.
+                # num_predict limita a resposta: modelos pequenos podem entrar em loop com
+                # linhas repetidas e gerar sem parar, travando a fila.
+                "options": {"temperature": 0, "num_ctx": 8192, "num_predict": 4096},
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+            }
+        )
+        try:
+            return json.loads(message.get("content", ""))
+        except json.JSONDecodeError as exc:
             raise LLMError(f"Resposta inválida do Ollama: {exc}") from exc
 
     def chat_with_tools(
@@ -336,6 +359,20 @@ class AnthropicProvider:
         if response.parsed_output is None:
             raise LLMError("Resposta do Claude incompleta.")
         return response.parsed_output.results
+
+    def extract_json(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
+        response = self._call(
+            "create",
+            max_tokens=16000,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+            output_config={"effort": "low", "format": {"type": "json_schema", "schema": schema}},
+        )
+        text = "".join(b.text for b in response.content if b.type == "text")
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise LLMError("Resposta do Claude não é um JSON válido.") from exc
 
     def chat_with_tools(
         self,

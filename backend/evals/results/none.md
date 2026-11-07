@@ -1,6 +1,6 @@
 # Avaliação da categorização: none
 
-145 transações rotuladas · tempo total 0.06s
+145 transações rotuladas · tempo total 0.37s
 
 | Métrica | Valor |
 |---|---|

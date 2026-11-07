@@ -1,26 +1,39 @@
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, ListOrdered, Loader2, MessageCircle, Upload, Wallet } from "lucide-react";
+import {
+  LayoutDashboard,
+  ListOrdered,
+  Loader2,
+  MessageCircle,
+  Receipt,
+  Upload,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
 import { useCategorizationJob } from "./useCategorizationJob";
 import Assistant from "./pages/Assistant";
 import Dashboard from "./pages/Dashboard";
+import Employees from "./pages/Employees";
+import Expenses from "./pages/Expenses";
 import ImportPage from "./pages/Import";
 import Transactions from "./pages/Transactions";
 
-export type Page = "dashboard" | "transactions" | "assistant" | "import";
+export type Page = "expenses" | "employees" | "dashboard" | "transactions" | "assistant" | "import";
 export type Notify = (message: string, tone?: "success" | "error") => void;
 export type OnQueued = (queued: number) => void;
 
 const NAV: { id: Page; label: string; icon: typeof Wallet }[] = [
+  { id: "expenses", label: "Lançamentos", icon: Receipt },
+  { id: "employees", label: "Funcionários", icon: Users },
   { id: "dashboard", label: "Visão geral", icon: LayoutDashboard },
-  { id: "transactions", label: "Transações", icon: ListOrdered },
+  { id: "transactions", label: "Extrato", icon: ListOrdered },
   { id: "assistant", label: "Assistente", icon: MessageCircle },
-  { id: "import", label: "Importar", icon: Upload },
+  { id: "import", label: "Importar extrato", icon: Upload },
 ];
 
 export default function App() {
-  const [page, setPage] = useState<Page>("dashboard");
+  const [page, setPage] = useState<Page>("expenses");
   const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
   const health = useQuery({ queryKey: ["health"], queryFn: api.health });
 
@@ -94,6 +107,8 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
+        {page === "expenses" && <Expenses notify={notify} />}
+        {page === "employees" && <Employees notify={notify} />}
         {page === "dashboard" && <Dashboard onNavigate={setPage} notify={notify} onQueued={job.watch} />}
         {page === "transactions" && (
           <Transactions notify={notify} onQueued={job.watch} jobRunning={job.running} />

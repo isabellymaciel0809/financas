@@ -14,3 +14,7 @@ backend/static/
 
 # Segredos
 .env
+
+# Documentos fiscais reais (nunca versionar)
+exemplos/cupons/
+backend/data/

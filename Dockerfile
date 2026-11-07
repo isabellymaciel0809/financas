@@ -10,8 +10,14 @@ RUN npm run build
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    DATABASE_URL=sqlite:////data/financas.db
+    DATABASE_URL=sqlite:////data/financas.db \
+    UPLOAD_DIR=/data/uploads
 WORKDIR /app
+
+# Bibliotecas de sistema exigidas pelo OpenCV (leitura de fotos de cupons).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

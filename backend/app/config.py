@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     database_url: str = "sqlite:///./financas.db"
+    # Onde ficam os XMLs e fotos enviados (fora do git; volume no Docker).
+    upload_dir: str = "./data/uploads"
+    max_upload_mb: int = 15
+    # Usar a LLM para reler cupons cuja soma não fecha. Desligado por padrão: com um modelo
+    # local de 3B na CPU leva mais de 30 min por cupom. Vale a pena com o Claude.
+    photo_llm_fallback: bool = False
     cors_origins: list[str] = ["http://localhost:5173"]
 
     # Provedor de LLM usado como última etapa da categorização.

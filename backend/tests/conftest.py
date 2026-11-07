@@ -1,8 +1,10 @@
 import os
+import tempfile
 
-# Precisa vir antes de importar o app: banco em memória e nenhum LLM real.
+# Precisa vir antes de importar o app: banco em memória, nenhum LLM real e uploads temporários.
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["LLM_PROVIDER"] = "none"
+os.environ["UPLOAD_DIR"] = tempfile.mkdtemp(prefix="financas-uploads-")
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

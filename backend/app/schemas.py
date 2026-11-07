@@ -2,7 +2,7 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models import CategorizedBy, CategoryKind
+from app.models import CategorizedBy, CategoryKind, ExpenseSource, ExpenseStatus
 
 
 class CategoryOut(BaseModel):
@@ -110,3 +110,113 @@ class HealthOut(BaseModel):
     llm_provider: str
     llm_model: str | None
     llm_available: bool
+
+
+# --- Lançamentos de despesa e funcionários --------------------------------------------------
+
+
+class EmployeeIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    role: str | None = Field(None, max_length=80)
+    active: bool = True
+
+
+class EmployeeOut(EmployeeIn):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+
+
+class ExpenseItemIn(BaseModel):
+    id: int | None = None  # item existente (para manter a origem da categoria)
+    description: str = Field(min_length=1, max_length=255)
+    total_cents: int = Field(ge=0)
+    quantity: float = Field(1.0, gt=0)
+    unit: str | None = Field(None, max_length=10)
+    unit_price_cents: int | None = Field(None, ge=0)
+    code: str | None = Field(None, max_length=60)
+    category_id: int | None = None
+
+
+class ExpenseItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    position: int
+    code: str | None
+    description: str
+    ncm: str | None
+    quantity: float
+    unit: str | None
+    unit_price_cents: int | None
+    total_cents: int
+    category: CategoryOut | None
+    categorized_by: CategorizedBy
+    confidence: float | None
+
+
+class SupplierOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    cnpj: str | None
+    name: str
+
+
+class ExpenseSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    source: ExpenseSource
+    status: ExpenseStatus
+    issue_date: date | None
+    description: str | None
+    supplier: SupplierOut | None
+    employee: EmployeeOut | None
+    reimbursable: bool
+    number: str | None
+    total_cents: int | None
+    original_filename: str | None
+    issues: list[str]
+    item_count: int
+    processing_seconds: float | None
+
+
+class ExpenseDetail(ExpenseSummary):
+    access_key: str | None
+    model: str | None
+    series: str | None
+    payment_method: str | None
+    declared_item_count: int | None
+    items_expected_cents: int | None
+    raw_text: str | None
+    has_file: bool
+    items: list[ExpenseItemOut]
+
+
+class ExpenseUpdate(BaseModel):
+    description: str | None = Field(None, max_length=255)
+    issue_date: date | None = None
+    total_cents: int | None = Field(None, ge=0)
+    payment_method: str | None = Field(None, max_length=60)
+    supplier_name: str | None = Field(None, max_length=160)
+    supplier_cnpj: str | None = Field(None, max_length=18)
+    employee_id: int | None = None
+    reimbursable: bool | None = None
+    items: list[ExpenseItemIn] | None = None
+
+
+class ManualExpenseCreate(BaseModel):
+    issue_date: date
+    description: str = Field(min_length=1, max_length=255)
+    items: list[ExpenseItemIn] = Field(min_length=1, max_length=200)
+    supplier_name: str | None = Field(None, max_length=160)
+    supplier_cnpj: str | None = Field(None, max_length=18)
+    payment_method: str | None = Field(None, max_length=60)
+    employee_id: int | None = None
+    reimbursable: bool = False
+
+
+class ExpenseQueueStatus(BaseModel):
+    running: bool
+    processing: int

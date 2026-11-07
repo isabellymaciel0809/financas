@@ -1,16 +1,34 @@
-# 💰 Finanças IA: organizador de finanças pessoais com LLM
+# 🧾 Finanças IA: lançamento automático de notas fiscais e cupons
 
-Importe o extrato do seu banco e veja seus gastos organizados automaticamente. A categorização
-combina **memória das suas correções**, **regras determinísticas** e um **modelo de linguagem
-rodando localmente** (Ollama). Tudo isso **sem custo**: nenhuma API paga é necessária, e os seus
-dados financeiros não saem da sua máquina.
+Sistema para pequenas empresas que **substitui a planilha preenchida à mão**: você envia o XML
+da NF-e ou a foto do cupom fiscal, e o lançamento da despesa é feito sozinho, com fornecedor,
+itens, categorias e validação dos valores. O que não fecha vai para revisão, com o problema
+apontado. No fim do mês, exporta tudo para Excel.
+
+Tudo roda **sem custo e localmente**: OCR e modelo de linguagem (Ollama) na própria máquina,
+sem API paga, e os documentos fiscais não saem do computador.
 
 ![CI](https://github.com/SEU-USUARIO/financas-ia/actions/workflows/ci.yml/badge.svg)
 
-<!-- Adicione aqui um GIF ou print do dashboard: docs/demo.gif -->
+<!-- Adicione aqui um GIF ou print: docs/demo.gif -->
 
 ## Funcionalidades
 
+### Lançamentos de despesa
+- **XML de NF-e/NFC-e**: leitura exata do layout nacional 4.00, com proteção contra XML malicioso.
+- **Foto de cupom (NFC-e)**: QR Code → OCR local → leitor por padrões → validação.
+- **Lançamento manual**: aluguel, serviço sem nota, folha de pagamento, benefícios.
+- **Funcionários**: lançamentos ligados a funcionários (folha, benefícios) e **reembolsos** de
+  despesas pagas por eles, com o total a devolver para cada um.
+- **Validações automáticas**: soma dos itens = total, quantidade de itens, quantidade × unitário,
+  dígitos verificadores de CNPJ e chave de acesso, e **nota duplicada** pela chave de acesso.
+- **Revisão** com a foto ao lado dos dados extraídos e a soma conferida enquanto se edita.
+- **Categorias por item** com a mesma cascata da IA (memória → regras → LLM); cada correção vira
+  memória para as próximas notas.
+- **Exportação para Excel**: abas de lançamentos, itens, totais por categoria e reembolsos.
+- **Fila em segundo plano**: o envio responde na hora; a leitura acontece depois.
+
+### Finanças a partir do extrato bancário
 - **Importação de extratos** do Nubank (conta e cartão), Banco Inter, CSVs genéricos e **OFX**,
   com detecção automática do formato, de separador decimal brasileiro (`1.234,56`) e da codificação.
 - **Deduplicação**: reimportar o mesmo extrato não duplica nada, mas duas compras idênticas no
@@ -25,6 +43,48 @@ dados financeiros não saem da sua máquina.
 - **Dashboard** com receitas, despesas, saldo, gastos por categoria, evolução mensal e a taxa de
   automação da categorização.
 - **Dados de exemplo** com um clique, para conhecer o app sem precisar do seu extrato.
+
+## Leitura de notas e cupons
+
+```mermaid
+flowchart LR
+    X[XML NF-e] --> P[Leitura exata do XML]
+    F[Foto do cupom] --> Q[QR Code<br/>chave de acesso]
+    F --> O[OCR local<br/>RapidOCR]
+    O --> R[Leitor por padrões<br/>do DANFE NFC-e]
+    P --> V{Validações}
+    Q --> V
+    R --> V
+    V --> C[Categorias por item<br/>memória → regras → LLM]
+    C -- tudo fecha --> OK[Confirmado]
+    C -- algo não fecha --> REV[Revisar<br/>com o problema apontado]
+```
+
+**Por que um leitor por padrões em vez de pedir tudo à LLM?** Testado com uma foto real de cupom
+(23 itens) e `qwen2.5:3b` na CPU, a extração por LLM **passou de 30 minutos e não terminou**: o
+modelo entra em loop com linhas repetidas (o cupom tinha 10 itens idênticos). O layout do DANFE
+NFC-e é padronizado, então o leitor por padrões resolve em milissegundos. A LLM ficou para o que
+faz bem e rápido, categorizar itens curtos, e a extração por LLM continua disponível como
+segunda tentativa opcional (`PHOTO_LLM_FALLBACK=true`), útil com um modelo rápido como o Claude.
+
+Resultado na foto real (enviada por WhatsApp, com o QR Code ilegível):
+
+| | |
+|---|---|
+| Itens lidos | 22 de 23, em ~10 s de OCR |
+| Total | R$ 1.034,33, correto |
+| Validação | "A soma dos itens não bate com o total: **faltam R$ 52,50**", exatamente o item que o OCR perdeu |
+| Categorias | 17 itens por regras, todos certos; 4 pela LLM, genéricos ("Compras"); 1 ilegível, deixado para a revisão |
+| Status | **Revisar**: nada errado foi lançado em silêncio |
+
+Achados que viraram código:
+- **Contexto ajuda a LLM:** "HANOMETRO" sozinho (OCR de "MANÔMETRO") virava *Transporte*; com
+  "item de OCR comprado na FRIGELAR", deixou de ser absurdo.
+- **Não pergunte o que não tem resposta:** item com descrição ilegível não vai para a LLM, que
+  só chutaria.
+- **`num_predict` na LLM:** um limite de tamanho na resposta impede que um loop trave a fila.
+- **Regras tolerantes a OCR**, só para itens: "TUB0" → tubo, "FITAPUC10..." → fita.
+- **SEFAZ-SP:** a consulta pública recusa conexões automatizadas, então o sistema não depende dela.
 
 ## Como a IA foi aplicada
 
@@ -188,12 +248,14 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 | `LLM_PROVIDER` | `ollama` | `ollama`, `anthropic` ou `none` |
 | `OLLAMA_MODEL` | `qwen2.5:3b` | Qualquer modelo do Ollama com suporte a saída estruturada |
 | `ANTHROPIC_API_KEY` | — | Só para `LLM_PROVIDER=anthropic` (serviço pago) |
+| `UPLOAD_DIR` | `./data/uploads` | Onde ficam os XMLs e fotos enviados |
+| `PHOTO_LLM_FALLBACK` | `false` | Reler por LLM cupons cuja soma não fecha (recomendado só com modelo rápido) |
 
 ## Testes
 
 ```bash
 cd backend
-pytest          # 69 testes: parsers, categorização, aprendizado, assistente, API e avaliação
+pytest          # 88 testes: notas e cupons, validações, categorização, assistente, API e avaliação
 ruff check .
 ```
 
@@ -205,8 +267,17 @@ O CI roda lint, testes, o build do frontend e o build da imagem Docker a cada pu
 backend/app/
 ├── main.py                  # app FastAPI, CORS, frontend estático
 ├── models.py / schemas.py   # SQLAlchemy e Pydantic
-├── routers/                 # transações, dashboard, importação, categorias, assistente
+├── routers/                 # lançamentos, funcionários, extrato, dashboard, assistente
 └── services/
+    ├── fiscal/
+    │   ├── nfe_xml.py       # XML de NF-e/NFC-e (layout 4.00)
+    │   ├── photo.py         # foto: QR Code + OCR
+    │   ├── receipt_parser.py# leitor por padrões do DANFE NFC-e
+    │   ├── keys.py          # chave de acesso e CNPJ (dígitos verificadores)
+    │   ├── validation.py    # regras que decidem: confirmar ou revisar
+    │   ├── items.py         # categorias dos itens (memória → regras → LLM)
+    │   ├── processor.py     # fila em segundo plano: arquivo → lançamento
+    │   └── export.py        # Excel (lançamentos, itens, categorias, reembolsos)
     ├── assistant.py         # ferramentas do assistente e prompt
     ├── importer.py          # parsers de CSV (Nubank, Inter, genérico) e OFX
     ├── ingest.py            # caso de uso: importar → deduplicar → categorizar
@@ -218,12 +289,16 @@ backend/app/
         └── llm.py           # provedores Ollama e Anthropic: categorização e tool use
 backend/evals/               # conjunto rotulado + script de avaliação
 frontend/src/
-├── pages/                   # Dashboard, Transações, Assistente, Importar
+├── pages/                   # Lançamentos, revisão, Funcionários, Extrato, Assistente
 └── components/ui.tsx
 ```
 
 ## Próximos passos
 
+- [ ] Leitura do QR Code ao vivo pela câmera do celular (mais confiável que foto)
+- [ ] Conciliação: ligar cada lançamento ao pagamento no extrato bancário
+- [ ] Conjunto de fotos de cupons rotuladas para medir o leitor como já é medida a categorização
+- [ ] Exportação no formato exato da planilha usada hoje pela empresa
 - [ ] Avaliação automatizada do assistente (perguntas com respostas esperadas), como já existe para a categorização
 - [ ] Segundo conjunto rotulado, separado, só para teste (evita ajustar o prompt para a prova)
 - [ ] Comparar modelos menores (`qwen2.5:1.5b`) e maiores com a mesma avaliação

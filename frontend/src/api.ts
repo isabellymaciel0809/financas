@@ -136,3 +136,118 @@ export const api = {
   chat: (messages: ChatMessage[]) =>
     request<ChatResponse>("/assistant/chat", json("POST", { messages })),
 };
+
+// --- Lançamentos de despesa (notas, cupons e manuais) ----------------------------------------
+
+export type ExpenseStatus = "processing" | "needs_review" | "confirmed" | "duplicate" | "error";
+export type ExpenseSource = "nfe_xml" | "photo" | "manual";
+
+export interface Employee {
+  id: number;
+  name: string;
+  role: string | null;
+  active: boolean;
+}
+
+export interface ExpenseItem {
+  id: number;
+  position: number;
+  code: string | null;
+  description: string;
+  ncm: string | null;
+  quantity: number;
+  unit: string | null;
+  unit_price_cents: number | null;
+  total_cents: number;
+  category: Category | null;
+  categorized_by: CategorizedBy;
+  confidence: number | null;
+}
+
+export interface ExpenseSummary {
+  id: number;
+  source: ExpenseSource;
+  status: ExpenseStatus;
+  issue_date: string | null;
+  description: string | null;
+  supplier: { id: number; cnpj: string | null; name: string } | null;
+  employee: Employee | null;
+  reimbursable: boolean;
+  number: string | null;
+  total_cents: number | null;
+  original_filename: string | null;
+  issues: string[];
+  item_count: number;
+  processing_seconds: number | null;
+}
+
+export interface ExpenseDetail extends ExpenseSummary {
+  access_key: string | null;
+  model: string | null;
+  series: string | null;
+  payment_method: string | null;
+  declared_item_count: number | null;
+  items_expected_cents: number | null;
+  raw_text: string | null;
+  has_file: boolean;
+  items: ExpenseItem[];
+}
+
+export interface ExpenseItemInput {
+  id?: number;
+  description: string;
+  total_cents: number;
+  quantity?: number;
+  unit?: string | null;
+  unit_price_cents?: number | null;
+  category_id?: number | null;
+}
+
+export interface ExpenseUpdate {
+  description?: string | null;
+  issue_date?: string | null;
+  total_cents?: number | null;
+  payment_method?: string | null;
+  supplier_name?: string | null;
+  supplier_cnpj?: string | null;
+  employee_id?: number | null;
+  reimbursable?: boolean;
+  items?: ExpenseItemInput[];
+}
+
+export interface ManualExpenseInput {
+  issue_date: string;
+  description: string;
+  items: ExpenseItemInput[];
+  supplier_name?: string | null;
+  payment_method?: string | null;
+  employee_id?: number | null;
+  reimbursable?: boolean;
+}
+
+export const expensesApi = {
+  list: (status?: ExpenseStatus) =>
+    request<ExpenseSummary[]>(`/expenses${status ? `?status=${status}` : ""}`),
+  get: (id: number) => request<ExpenseDetail>(`/expenses/${id}`),
+  upload: (files: File[]) => {
+    const form = new FormData();
+    files.forEach((f) => form.append("files", f));
+    return request<ExpenseSummary[]>("/expenses/upload", { method: "POST", body: form });
+  },
+  createManual: (data: ManualExpenseInput) =>
+    request<ExpenseDetail>("/expenses", json("POST", data)),
+  update: (id: number, data: ExpenseUpdate) =>
+    request<ExpenseDetail>(`/expenses/${id}`, json("PATCH", data)),
+  confirm: (id: number) => request<ExpenseDetail>(`/expenses/${id}/confirm`, { method: "POST" }),
+  reprocess: (id: number) =>
+    request<ExpenseDetail>(`/expenses/${id}/reprocess`, { method: "POST" }),
+  remove: (id: number) => request<void>(`/expenses/${id}`, { method: "DELETE" }),
+  fileUrl: (id: number) => `/api/expenses/${id}/file`,
+  exportUrl: (month?: string) =>
+    `/api/expenses/export.xlsx${month ? `?month=${month}` : ""}`,
+  employees: () => request<Employee[]>("/employees"),
+  createEmployee: (data: Omit<Employee, "id">) =>
+    request<Employee>("/employees", json("POST", data)),
+  updateEmployee: (id: number, data: Omit<Employee, "id">) =>
+    request<Employee>(`/employees/${id}`, json("PUT", data)),
+};
