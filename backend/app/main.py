@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.database import Base, SessionLocal, engine
-from app.routers import dashboard, misc, transactions
+from app.routers import assistant, dashboard, misc, transactions
 from app.services.ingest import seed_categories
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -40,7 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for module in (misc, transactions, dashboard):
+for module in (misc, transactions, dashboard, assistant):
     app.include_router(module.router, prefix="/api")
 
 

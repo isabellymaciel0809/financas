@@ -12,9 +12,11 @@ from app.deps import get_llm_provider  # noqa: E402
 from app.main import app  # noqa: E402
 from app.services.categorizer.llm import (  # noqa: E402
     CategoryOption,
+    ChatResult,
     LLMError,
     LLMItem,
     Suggestion,
+    ToolCall,
 )
 from app.services.ingest import seed_categories  # noqa: E402
 
@@ -29,6 +31,8 @@ class FakeLLM:
         self.answers = answers or {}
         self.fail = fail
         self.calls: list[list[LLMItem]] = []
+        self.chat_script = []
+        self.tool_results = []
 
     def is_available(self) -> bool:
         return not self.fail
@@ -46,6 +50,20 @@ class FakeLLM:
                     )
                     break
         return out
+
+    # Assistente: executa as chamadas de ferramenta roteirizadas e devolve os resultados.
+    chat_script: list[tuple[str, dict]] = []
+    tool_results: list[dict] = []
+
+    def chat_with_tools(self, system, messages, tools, execute):
+        if self.fail:
+            raise LLMError("LLM fora do ar")
+        self.last_system, self.last_messages = system, messages
+        calls = []
+        for name, arguments in self.chat_script:
+            self.tool_results.append(execute(name, arguments))
+            calls.append(ToolCall(name, arguments))
+        return ChatResult(answer="resposta do fake", tool_calls=calls)
 
 
 @pytest.fixture

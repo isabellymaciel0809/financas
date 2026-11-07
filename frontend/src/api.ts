@@ -66,6 +66,16 @@ export interface Health {
   llm_available: boolean;
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatResponse {
+  answer: string;
+  tool_calls: { name: string; arguments: Record<string, unknown> }[];
+}
+
 export interface TransactionFilters {
   month?: string;
   category_id?: number;
@@ -119,4 +129,6 @@ export const api = {
     return request<ImportResult>("/imports", { method: "POST", body: form });
   },
   loadDemo: () => request<ImportResult>("/demo", { method: "POST" }),
+  chat: (messages: ChatMessage[]) =>
+    request<ChatResponse>("/assistant/chat", json("POST", { messages })),
 };

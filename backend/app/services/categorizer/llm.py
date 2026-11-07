@@ -1,10 +1,18 @@
-"""Provedores de LLM para categorização. Todos compartilham o mesmo prompt e o mesmo schema."""
+"""Provedores de LLM.
+
+Cada provedor sabe fazer duas coisas:
+- `categorize`: classificar transações em lote, com saída estruturada (JSON Schema);
+- `chat_with_tools`: conversar usando ferramentas que consultam o banco (assistente).
+
+Os provedores compartilham prompts, schemas e definições de ferramentas; só muda o protocolo.
+"""
 
 import json
 import logging
 import time
-from dataclasses import dataclass
-from typing import Protocol
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any, Protocol
 
 import httpx
 from pydantic import BaseModel, ValidationError
@@ -16,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 class LLMError(RuntimeError):
     """Falha ao consultar o LLM. A categorização continua sem ele (degradação graciosa)."""
+
+
+# --- Categorização ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -66,6 +77,33 @@ def build_user_message(items: list[LLMItem], categories: list[CategoryOption]) -
     return json.dumps(payload, ensure_ascii=False)
 
 
+# --- Conversa com ferramentas ----------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ToolSpec:
+    name: str
+    description: str
+    parameters: dict[str, Any]  # JSON Schema dos argumentos
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    name: str
+    arguments: dict[str, Any]
+
+
+@dataclass
+class ChatResult:
+    answer: str
+    tool_calls: list[ToolCall] = field(default_factory=list)
+
+
+# Recebe (nome da ferramenta, argumentos) e devolve um resultado serializável em JSON.
+ToolExecutor = Callable[[str, dict[str, Any]], dict[str, Any]]
+MAX_TOOL_STEPS = 6
+
+
 class LLMProvider(Protocol):
     name: str
     model: str
@@ -76,18 +114,35 @@ class LLMProvider(Protocol):
         self, items: list[LLMItem], categories: list[CategoryOption]
     ) -> list[Suggestion]: ...
 
+    def chat_with_tools(
+        self,
+        system: str,
+        messages: list[dict[str, str]],
+        tools: list[ToolSpec],
+        execute: ToolExecutor,
+    ) -> ChatResult: ...
+
+
+# --- Ollama ----------------------------------------------------------------------------------
+
 
 class OllamaProvider:
     """LLM local via Ollama: gratuito, offline, os dados não saem da máquina."""
 
     name = "ollama"
-
     AVAILABILITY_TTL_SECONDS = 30.0
 
-    def __init__(self, base_url: str, model: str, timeout: float = 120.0):
+    def __init__(
+        self,
+        base_url: str,
+        model: str,
+        timeout: float = 120.0,
+        client: httpx.Client | None = None,
+    ):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.timeout = timeout
+        self._http = client or httpx.Client()
         self._availability: tuple[float, bool] | None = None
 
     def is_available(self) -> bool:
@@ -96,7 +151,7 @@ class OllamaProvider:
         if self._availability and now - self._availability[0] < self.AVAILABILITY_TTL_SECONDS:
             return self._availability[1]
         try:
-            response = httpx.get(f"{self.base_url}/api/tags", timeout=1.0)
+            response = self._http.get(f"{self.base_url}/api/tags", timeout=1.0)
             response.raise_for_status()
             names = {m.get("name", "") for m in response.json().get("models", [])}
             available = self.model in names or f"{self.model}:latest" in names
@@ -105,35 +160,104 @@ class OllamaProvider:
         self._availability = (now, available)
         return available
 
+    def _chat(self, body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            response = self._http.post(
+                f"{self.base_url}/api/chat",
+                json={"model": self.model, "stream": False, **body},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            return response.json()["message"]
+        except httpx.HTTPError as exc:
+            raise LLMError(f"Ollama indisponível em {self.base_url}: {exc}") from exc
+        except (KeyError, ValueError) as exc:
+            raise LLMError(f"Resposta inválida do Ollama: {exc}") from exc
+
     def categorize(
         self, items: list[LLMItem], categories: list[CategoryOption]
     ) -> list[Suggestion]:
-        body = {
-            "model": self.model,
-            "stream": False,
-            # Saída estruturada: o Ollama restringe a geração a este JSON Schema.
-            "format": CategorizationOutput.model_json_schema(),
-            "options": {"temperature": 0},
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": build_user_message(items, categories)},
-            ],
-        }
+        message = self._chat(
+            {
+                # Saída estruturada: o Ollama restringe a geração a este JSON Schema.
+                "format": CategorizationOutput.model_json_schema(),
+                "options": {"temperature": 0},
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": build_user_message(items, categories)},
+                ],
+            }
+        )
         try:
-            response = httpx.post(f"{self.base_url}/api/chat", json=body, timeout=self.timeout)
-            response.raise_for_status()
-            content = response.json()["message"]["content"]
-            return CategorizationOutput.model_validate_json(content).results
-        except httpx.HTTPError as exc:
-            raise LLMError(f"Ollama indisponível em {self.base_url}: {exc}") from exc
-        except (KeyError, ValidationError) as exc:
+            return CategorizationOutput.model_validate_json(message.get("content", "")).results
+        except ValidationError as exc:
             raise LLMError(f"Resposta inválida do Ollama: {exc}") from exc
+
+    def chat_with_tools(
+        self,
+        system: str,
+        messages: list[dict[str, str]],
+        tools: list[ToolSpec],
+        execute: ToolExecutor,
+    ) -> ChatResult:
+        conversation: list[dict[str, Any]] = [{"role": "system", "content": system}, *messages]
+        ollama_tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": t.name,
+                    "description": t.description,
+                    "parameters": t.parameters,
+                },
+            }
+            for t in tools
+        ]
+        calls: list[ToolCall] = []
+        for _ in range(MAX_TOOL_STEPS):
+            message = self._chat(
+                {"messages": conversation, "tools": ollama_tools, "options": {"temperature": 0}}
+            )
+            tool_calls = message.get("tool_calls") or []
+            if not tool_calls:
+                return ChatResult(answer=(message.get("content") or "").strip(), tool_calls=calls)
+
+            conversation.append(
+                {
+                    "role": "assistant",
+                    "content": message.get("content", ""),
+                    "tool_calls": tool_calls,
+                }
+            )
+            for tool_call in tool_calls:
+                function = tool_call.get("function", {})
+                name = function.get("name", "")
+                arguments = function.get("arguments") or {}
+                if isinstance(arguments, str):
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError:
+                        arguments = {}
+                result = execute(name, arguments)
+                calls.append(ToolCall(name, arguments))
+                conversation.append(
+                    {
+                        "role": "tool",
+                        "tool_name": name,
+                        "content": json.dumps(result, ensure_ascii=False, default=str),
+                    }
+                )
+        raise LLMError("O assistente fez consultas demais sem chegar a uma resposta.")
+
+
+# --- Anthropic (Claude) ----------------------------------------------------------------------
 
 
 class AnthropicProvider:
     """Claude via API da Anthropic (opcional e pago; só é usado com ANTHROPIC_API_KEY)."""
 
     name = "anthropic"
+    # Se o modelo recusar a requisição, a API tenta outro modelo automaticamente.
+    FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
     def __init__(self, api_key: str | None, model: str):
         import anthropic
@@ -145,24 +269,14 @@ class AnthropicProvider:
     def is_available(self) -> bool:
         return self._client is not None
 
-    def categorize(
-        self, items: list[LLMItem], categories: list[CategoryOption]
-    ) -> list[Suggestion]:
+    def _call(self, method: str, **kwargs: Any) -> Any:
+        """Chama `client.beta.messages.<method>` traduzindo erros da API para LLMError."""
         if self._client is None:
             raise LLMError("ANTHROPIC_API_KEY não configurada.")
         anthropic = self._anthropic
         try:
-            response = self._client.beta.messages.parse(
-                model=self.model,
-                max_tokens=8000,
-                system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": build_user_message(items, categories)}],
-                output_format=CategorizationOutput,
-                # Classificação é uma tarefa simples: esforço baixo = mais rápido e barato.
-                output_config={"effort": "low"},
-                # Se o modelo recusar a requisição, a API tenta outro modelo automaticamente.
-                betas=["server-side-fallback-2026-07-01"],
-                fallbacks="default",
+            response = getattr(self._client.beta.messages, method)(
+                model=self.model, betas=[self.FALLBACK_BETA], fallbacks="default", **kwargs
             )
         except anthropic.AuthenticationError as exc:
             raise LLMError("Chave da Anthropic inválida.") from exc
@@ -172,12 +286,73 @@ class AnthropicProvider:
             raise LLMError(f"Erro da API Anthropic ({exc.status_code}): {exc.message}") from exc
         except anthropic.APIConnectionError as exc:
             raise LLMError("Sem conexão com a API da Anthropic.") from exc
-
         if response.stop_reason == "refusal":
             raise LLMError("O modelo recusou a requisição.")
-        if response.stop_reason == "max_tokens" or response.parsed_output is None:
+        if response.stop_reason == "max_tokens":
+            raise LLMError("Resposta do Claude incompleta.")
+        return response
+
+    def categorize(
+        self, items: list[LLMItem], categories: list[CategoryOption]
+    ) -> list[Suggestion]:
+        response = self._call(
+            "parse",
+            max_tokens=8000,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": build_user_message(items, categories)}],
+            output_format=CategorizationOutput,
+            # Classificação é uma tarefa simples: esforço baixo = mais rápido e barato.
+            output_config={"effort": "low"},
+        )
+        if response.parsed_output is None:
             raise LLMError("Resposta do Claude incompleta.")
         return response.parsed_output.results
+
+    def chat_with_tools(
+        self,
+        system: str,
+        messages: list[dict[str, str]],
+        tools: list[ToolSpec],
+        execute: ToolExecutor,
+    ) -> ChatResult:
+        conversation: list[dict[str, Any]] = list(messages)
+        anthropic_tools = [
+            {"name": t.name, "description": t.description, "input_schema": t.parameters}
+            for t in tools
+        ]
+        calls: list[ToolCall] = []
+        for _ in range(MAX_TOOL_STEPS):
+            response = self._call(
+                "create",
+                max_tokens=16000,
+                system=system,
+                tools=anthropic_tools,
+                messages=conversation,
+                output_config={"effort": "medium"},
+            )
+            if response.stop_reason != "tool_use":
+                text = "".join(b.text for b in response.content if b.type == "text")
+                return ChatResult(answer=text.strip(), tool_calls=calls)
+
+            # O conteúdo volta inteiro (inclui blocos de raciocínio), como a API exige.
+            conversation.append({"role": "assistant", "content": response.content})
+            results = []
+            for block in response.content:
+                if block.type != "tool_use":
+                    continue
+                result = execute(block.name, dict(block.input))
+                calls.append(ToolCall(block.name, dict(block.input)))
+                results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps(result, ensure_ascii=False, default=str),
+                        "is_error": "erro" in result,
+                    }
+                )
+            # Todos os resultados vão em uma única mensagem do usuário.
+            conversation.append({"role": "user", "content": results})
+        raise LLMError("O assistente fez consultas demais sem chegar a uma resposta.")
 
 
 def build_provider(settings: Settings) -> LLMProvider | None:

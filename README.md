@@ -19,6 +19,9 @@ dados financeiros não saem da sua máquina.
   categoria visíveis na interface.
 - **Aprendizado com correções**: ao trocar a categoria de uma transação, o app memoriza o
   estabelecimento e aplica a escolha às compras semelhantes, passadas e futuras.
+- **Assistente em linguagem natural**: "quanto gastei com alimentação nos últimos 3 meses?",
+  "quais foram meus 5 maiores gastos?". A LLM consulta os dados por meio de ferramentas, e a
+  interface mostra quais consultas foram feitas.
 - **Dashboard** com receitas, despesas, saldo, gastos por categoria, evolução mensal e a taxa de
   automação da categorização.
 - **Dados de exemplo** com um clique, para conhecer o app sem precisar do seu extrato.
@@ -49,6 +52,33 @@ Decisões de projeto:
 | **Provedores plugáveis** | `LLM_PROVIDER=ollama` (padrão, local e gratuito), `anthropic` (Claude, opcional) ou `none`. Os provedores compartilham o mesmo prompt e o mesmo schema, e os testes usam um provedor falso determinístico. |
 | **Rastreabilidade** | Cada transação guarda `categorized_by` (`memory`, `rule`, `llm`, `manual`) e a confiança, o que permite auditar e medir cada etapa. Sugestões da IA com confiança abaixo de 60% aparecem em "precisa de revisão". |
 | **Valores em centavos (`int`)** | Evita erros de arredondamento de ponto flutuante em dinheiro. |
+
+### Assistente com ferramentas (tool use)
+
+LLMs erram contas e inventam números. Por isso, no assistente a LLM **não recebe os dados
+brutos nem faz cálculos**: ela recebe três ferramentas (`resumo_financeiro`,
+`buscar_transacoes`, `evolucao_mensal`), escolhe qual chamar e com quais filtros, e o backend
+executa a consulta em SQL e devolve os totais prontos.
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant API as FastAPI
+    participant LLM as LLM (Ollama)
+    participant DB as Banco
+    U->>API: "Quanto gastei com iFood em outubro?"
+    API->>LLM: pergunta + definições das ferramentas
+    LLM->>API: buscar_transacoes(texto="ifood", data_inicio=2026-10-01, ...)
+    API->>DB: SELECT ... (argumentos validados com Pydantic)
+    DB-->>API: 12 transações, soma R$ 486,30
+    API->>LLM: resultado da ferramenta
+    LLM-->>U: "Você gastou R$ 486,30 no iFood em outubro (12 pedidos)."
+```
+
+- Os argumentos são validados; um erro (categoria inexistente, data inválida) volta para a LLM
+  como mensagem, para ela corrigir sozinha.
+- As ferramentas são só de leitura. O loop tem limite de passos e o histórico, de tamanho.
+- O loop do Ollama é testado com um servidor HTTP simulado (`httpx.MockTransport`), sem rede.
 
 ## Avaliação da IA
 
@@ -128,7 +158,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 40 testes: parsers, cascata de categorização, aprendizado, API e avaliação
+pytest          # 51 testes: parsers, categorização, aprendizado, assistente, API e avaliação
 ruff check .
 ```
 
@@ -140,8 +170,9 @@ O CI roda lint, testes, o build do frontend e o build da imagem Docker a cada pu
 backend/app/
 ├── main.py                  # app FastAPI, CORS, frontend estático
 ├── models.py / schemas.py   # SQLAlchemy e Pydantic
-├── routers/                 # transações, dashboard, importação, categorias
+├── routers/                 # transações, dashboard, importação, categorias, assistente
 └── services/
+    ├── assistant.py         # ferramentas do assistente e prompt
     ├── importer.py          # parsers de CSV (Nubank, Inter, genérico) e OFX
     ├── ingest.py            # caso de uso: importar → deduplicar → categorizar
     ├── text.py              # normalização de descrições e chave do estabelecimento
@@ -149,15 +180,16 @@ backend/app/
         ├── pipeline.py      # cascata memória → regras → LLM
         ├── rules.py         # regras de palavra-chave
         ├── defaults.py      # categorias e palavras-chave padrão
-        └── llm.py           # provedores Ollama e Anthropic, prompt e schema
+        └── llm.py           # provedores Ollama e Anthropic: categorização e tool use
+backend/evals/               # conjunto rotulado + script de avaliação
 frontend/src/
-├── pages/                   # Dashboard, Transações, Importar
+├── pages/                   # Dashboard, Transações, Assistente, Importar
 └── components/ui.tsx
 ```
 
 ## Próximos passos
 
-- [ ] Chat com as finanças ("quanto gastei com delivery em outubro?") via tool use
+- [ ] Avaliação do assistente (perguntas com respostas esperadas), como já existe para a categorização
 - [ ] Resumo mensal gerado pela IA, com alertas de gastos fora do padrão
 - [ ] Lançamento por texto livre ("gastei 45 no mercado ontem")
 - [ ] Métricas de acerto da IA em produção, a partir das correções do usuário

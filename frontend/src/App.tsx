@@ -1,17 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, ListOrdered, Upload, Wallet } from "lucide-react";
+import { LayoutDashboard, ListOrdered, MessageCircle, Upload, Wallet } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
+import Assistant from "./pages/Assistant";
 import Dashboard from "./pages/Dashboard";
 import ImportPage from "./pages/Import";
 import Transactions from "./pages/Transactions";
 
-export type Page = "dashboard" | "transactions" | "import";
+export type Page = "dashboard" | "transactions" | "assistant" | "import";
 export type Notify = (message: string, tone?: "success" | "error") => void;
 
 const NAV: { id: Page; label: string; icon: typeof Wallet }[] = [
   { id: "dashboard", label: "Visão geral", icon: LayoutDashboard },
   { id: "transactions", label: "Transações", icon: ListOrdered },
+  { id: "assistant", label: "Assistente", icon: MessageCircle },
   { id: "import", label: "Importar", icon: Upload },
 ];
 
@@ -77,6 +79,7 @@ export default function App() {
       <main className="mx-auto max-w-6xl px-4 py-6">
         {page === "dashboard" && <Dashboard onNavigate={setPage} notify={notify} />}
         {page === "transactions" && <Transactions notify={notify} />}
+        {page === "assistant" && <Assistant />}
         {page === "import" && <ImportPage onNavigate={setPage} notify={notify} />}
       </main>
 
