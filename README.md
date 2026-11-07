@@ -25,7 +25,11 @@ sem API paga, e os documentos fiscais não saem do computador.
 - **Revisão** com a foto ao lado dos dados extraídos e a soma conferida enquanto se edita.
 - **Categorias por item** com a mesma cascata da IA (memória → regras → LLM); cada correção vira
   memória para as próximas notas.
-- **Exportação para Excel**: abas de lançamentos, itens, totais por categoria e reembolsos.
+- **Proposta/obra e Tipo** (Custo, Despesas, Estoque, Receita, Caixa) em cada lançamento: o
+  material comprado para uma obra vira custo daquela proposta.
+- **Exportação para Excel no formato da planilha da empresa** (`Data | Mês | Cliente/Fornecedor |
+  Proposta | Descrição | Tipo | Valor (R$)`, uma linha por item), com abas de **resultado por
+  proposta** (receitas − custos), totais por categoria, reembolsos e conferência das notas.
 - **Fila em segundo plano**: o envio responde na hora; a leitura acontece depois.
 
 ### Finanças a partir do extrato bancário
@@ -201,7 +205,8 @@ O que a avaliação mostrou:
 **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, Pydantic, SQLite (dev) / PostgreSQL (Docker), pytest, Ruff
 **Frontend:** React 19, TypeScript, Vite, Tailwind CSS, TanStack Query, Recharts
 **IA:** Ollama (`qwen2.5:3b` por padrão) · Claude (opcional)
-**Infra:** Docker multi-stage (um container serve a API e o frontend), Docker Compose, GitHub Actions
+**Infra:** Docker multi-stage (um container serve a API e o frontend), Docker Compose, GitHub Actions,
+migrações de banco com Alembic (aplicadas ao iniciar; bancos antigos são reconhecidos e atualizados sem perder dados)
 
 ## Rodando localmente
 
@@ -255,7 +260,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 88 testes: notas e cupons, validações, categorização, assistente, API e avaliação
+pytest          # 91 testes: notas e cupons, planilha, migrações, categorização, assistente e API
 ruff check .
 ```
 
@@ -298,7 +303,6 @@ frontend/src/
 - [ ] Leitura do QR Code ao vivo pela câmera do celular (mais confiável que foto)
 - [ ] Conciliação: ligar cada lançamento ao pagamento no extrato bancário
 - [ ] Conjunto de fotos de cupons rotuladas para medir o leitor como já é medida a categorização
-- [ ] Exportação no formato exato da planilha usada hoje pela empresa
 - [ ] Avaliação automatizada do assistente (perguntas com respostas esperadas), como já existe para a categorização
 - [ ] Segundo conjunto rotulado, separado, só para teste (evita ajustar o prompt para a prova)
 - [ ] Comparar modelos menores (`qwen2.5:1.5b`) e maiores com a mesma avaliação
@@ -307,4 +311,3 @@ frontend/src/
 - [ ] Lançamento por texto livre ("gastei 45 no mercado ontem")
 - [ ] Métricas de acerto da IA em produção, a partir das correções do usuário
 - [ ] Autenticação e múltiplos usuários
-- [ ] Migrações com Alembic

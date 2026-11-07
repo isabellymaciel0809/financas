@@ -173,6 +173,8 @@ export interface ExpenseSummary {
   supplier: { id: number; cnpj: string | null; name: string } | null;
   employee: Employee | null;
   reimbursable: boolean;
+  proposal: string | null;
+  entry_type: string;
   number: string | null;
   total_cents: number | null;
   original_filename: string | null;
@@ -212,6 +214,8 @@ export interface ExpenseUpdate {
   supplier_cnpj?: string | null;
   employee_id?: number | null;
   reimbursable?: boolean;
+  proposal?: string | null;
+  entry_type?: string;
   items?: ExpenseItemInput[];
 }
 
@@ -223,15 +227,23 @@ export interface ManualExpenseInput {
   payment_method?: string | null;
   employee_id?: number | null;
   reimbursable?: boolean;
+  proposal?: string | null;
+  entry_type?: string | null;
 }
+
+// Coluna "Tipo" da planilha da empresa (o campo aceita outros valores).
+export const ENTRY_TYPES = ["Custo", "Despesas", "Estoque", "Receita", "Caixa"];
+export const isIncomeType = (type: string) => type === "Receita";
 
 export const expensesApi = {
   list: (status?: ExpenseStatus) =>
     request<ExpenseSummary[]>(`/expenses${status ? `?status=${status}` : ""}`),
   get: (id: number) => request<ExpenseDetail>(`/expenses/${id}`),
-  upload: (files: File[]) => {
+  upload: (files: File[], proposal?: string, entryType?: string) => {
     const form = new FormData();
     files.forEach((f) => form.append("files", f));
+    if (proposal) form.append("proposal", proposal);
+    if (entryType) form.append("entry_type", entryType);
     return request<ExpenseSummary[]>("/expenses/upload", { method: "POST", body: form });
   },
   createManual: (data: ManualExpenseInput) =>
@@ -242,6 +254,7 @@ export const expensesApi = {
   reprocess: (id: number) =>
     request<ExpenseDetail>(`/expenses/${id}/reprocess`, { method: "POST" }),
   remove: (id: number) => request<void>(`/expenses/${id}`, { method: "DELETE" }),
+  proposals: () => request<string[]>("/expenses/proposals"),
   fileUrl: (id: number) => `/api/expenses/${id}/file`,
   exportUrl: (month?: string) =>
     `/api/expenses/export.xlsx${month ? `?month=${month}` : ""}`,

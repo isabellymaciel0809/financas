@@ -1,8 +1,13 @@
-"""Exporta os lançamentos para Excel: é o que substitui a planilha preenchida à mão."""
+"""Exporta os lançamentos para Excel: é o que substitui a planilha preenchida à mão.
+
+A primeira aba segue exatamente as colunas da planilha da empresa:
+Data | Mês | Cliente/Fornecedor | Proposta | Descrição | Tipo | Valor (R$), uma linha por item.
+"""
 
 import io
 from collections import defaultdict
 from collections.abc import Sequence
+from datetime import date
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
@@ -10,11 +15,14 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from app.models import Expense, ExpenseSource, ExpenseStatus
+from app.services.fiscal.entry_types import INCOME_TYPES
 from app.services.fiscal.keys import format_cnpj
 
-MONEY = "R$ #,##0.00;[Red]-R$ #,##0.00"
+MONEY = "#,##0.00"
 DATE = "DD/MM/YYYY"
+MONTH = "MMM/YY"  # data do 1º dia do mês, exibida como "nov/26": filtra e ordena no Excel
 HEADER_FILL = PatternFill("solid", fgColor="065F46")
+NO_PROPOSAL = "(sem proposta)"
 
 STATUS_LABELS = {
     ExpenseStatus.processing: "Processando",
@@ -31,7 +39,10 @@ SOURCE_LABELS = {
 
 
 def _sheet(
-    ws: Worksheet, headers: list[str], rows: list[list], money_cols: set[int], date_cols: set[int]
+    ws: Worksheet,
+    headers: list[str],
+    rows: list[list],
+    formats: dict[int, str] | None = None,
 ) -> None:
     ws.append(headers)
     for cell in ws[1]:
@@ -41,120 +52,83 @@ def _sheet(
         ws.append(row)
     for col in range(1, len(headers) + 1):
         letter = get_column_letter(col)
-        if col in money_cols or col in date_cols:
+        if formats and col in formats:
             for cell in ws[letter][1:]:
-                cell.number_format = MONEY if col in money_cols else DATE
+                cell.number_format = formats[col]
         width = max(len(str(c.value or "")) for c in ws[letter])
         ws.column_dimensions[letter].width = min(max(12, width + 2), 60)
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = ws.dimensions
 
 
-def _reais(cents: int | None) -> float | None:
-    return None if cents is None else cents / 100
+def _counterpart(e: Expense) -> str:
+    return e.supplier.name if e.supplier else ""
 
 
 def build_workbook(expenses: Sequence[Expense]) -> bytes:
     wb = Workbook()
+    expenses = sorted(expenses, key=lambda e: (e.issue_date or date.min, e.id))
 
-    # 1. Um lançamento por linha
+    # 1. Formato da planilha da empresa: uma linha por item
     rows = []
     for e in expenses:
-        by_category: dict[str, int] = defaultdict(int)
+        month = e.issue_date.replace(day=1) if e.issue_date else None
         for item in e.items:
-            by_category[item.category.name if item.category else "Sem categoria"] += (
-                item.total_cents
+            rows.append(
+                [
+                    e.issue_date,
+                    month,
+                    _counterpart(e),
+                    e.proposal or "",
+                    item.description,
+                    e.entry_type,
+                    item.total_cents / 100,
+                ]
             )
-        main_category = max(by_category, key=by_category.get) if by_category else ""
-        rows.append(
+    sheet = wb.active
+    sheet.title = "Planilha"
+    _sheet(
+        sheet,
+        ["Data", "Mês", "Cliente/Fornecedor", "Proposta", "Descrição", "Tipo", "Valor (R$)"],
+        rows,
+        {1: DATE, 2: MONTH, 7: MONEY},
+    )
+
+    # 2. Resultado por proposta/obra: receitas - custos
+    by_proposal: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for e in expenses:
+        by_proposal[e.proposal or NO_PROPOSAL][e.entry_type] += e.total_cents or 0
+    proposal_rows = []
+    for proposal, totals in sorted(by_proposal.items(), key=lambda kv: kv[0] == NO_PROPOSAL):
+        income = sum(v for k, v in totals.items() if k in INCOME_TYPES)
+        spent = sum(v for k, v in totals.items() if k not in INCOME_TYPES)
+        proposal_rows.append(
             [
-                e.id,
-                e.issue_date,
-                e.supplier.name if e.supplier else "",
-                format_cnpj(e.supplier.cnpj) if e.supplier and e.supplier.cnpj else "",
-                e.number or "",
-                e.description or "",
-                main_category,
-                e.employee.name if e.employee else "",
-                "Sim" if e.reimbursable else "Não",
-                e.payment_method or "",
-                _reais(e.total_cents),
-                STATUS_LABELS[e.status],
-                SOURCE_LABELS[e.source],
-                e.access_key or "",
+                proposal,
+                income / 100,
+                totals.get("Custo", 0) / 100,
+                (spent - totals.get("Custo", 0)) / 100,
+                (income - spent) / 100,
             ]
         )
     _sheet(
-        wb.active,
-        [
-            "ID",
-            "Data",
-            "Fornecedor",
-            "CNPJ",
-            "Nº nota",
-            "Descrição",
-            "Categoria principal",
-            "Funcionário",
-            "Reembolsar",
-            "Pagamento",
-            "Valor total",
-            "Status",
-            "Origem",
-            "Chave de acesso",
-        ],
-        rows,
-        money_cols={11},
-        date_cols={2},
-    )
-    wb.active.title = "Lançamentos"
-
-    # 2. Um item por linha (para tabelas dinâmicas)
-    item_rows = [
-        [
-            e.id,
-            e.issue_date,
-            e.supplier.name if e.supplier else "",
-            item.description,
-            item.quantity,
-            item.unit or "",
-            _reais(item.unit_price_cents),
-            _reais(item.total_cents),
-            item.category.name if item.category else "Sem categoria",
-            e.employee.name if e.employee else "",
-        ]
-        for e in expenses
-        for item in e.items
-    ]
-    _sheet(
-        wb.create_sheet("Itens"),
-        [
-            "Lançamento",
-            "Data",
-            "Fornecedor",
-            "Item",
-            "Qtd",
-            "Un",
-            "Valor unitário",
-            "Valor total",
-            "Categoria",
-            "Funcionário",
-        ],
-        item_rows,
-        money_cols={7, 8},
-        date_cols={2},
+        wb.create_sheet("Por proposta"),
+        ["Proposta", "Receitas", "Custos", "Outras saídas", "Resultado"],
+        proposal_rows,
+        {2: MONEY, 3: MONEY, 4: MONEY, 5: MONEY},
     )
 
-    # 3. Totais por categoria
-    totals: dict[str, int] = defaultdict(int)
+    # 3. Totais por categoria e tipo
+    totals: dict[tuple[str, str], int] = defaultdict(int)
     for e in expenses:
         for item in e.items:
-            totals[item.category.name if item.category else "Sem categoria"] += item.total_cents
+            category = item.category.name if item.category else "Sem categoria"
+            totals[(e.entry_type, category)] += item.total_cents
     _sheet(
         wb.create_sheet("Por categoria"),
-        ["Categoria", "Total"],
-        [[name, cents / 100] for name, cents in sorted(totals.items(), key=lambda kv: -kv[1])],
-        money_cols={2},
-        date_cols=set(),
+        ["Tipo", "Categoria", "Total"],
+        [[t, c, v / 100] for (t, c), v in sorted(totals.items(), key=lambda kv: -kv[1])],
+        {3: MONEY},
     )
 
     # 4. Quanto devolver a cada funcionário
@@ -166,8 +140,48 @@ def build_workbook(expenses: Sequence[Expense]) -> bytes:
         wb.create_sheet("Reembolsos"),
         ["Funcionário", "A reembolsar"],
         [[name, cents / 100] for name, cents in sorted(refunds.items())],
-        money_cols={2},
-        date_cols=set(),
+        {2: MONEY},
+    )
+
+    # 5. Uma linha por documento, com os dados fiscais (para conferência)
+    _sheet(
+        wb.create_sheet("Notas"),
+        [
+            "ID",
+            "Data",
+            "Cliente/Fornecedor",
+            "CNPJ",
+            "Nº nota",
+            "Proposta",
+            "Tipo",
+            "Funcionário",
+            "Reembolsar",
+            "Pagamento",
+            "Valor total",
+            "Status",
+            "Origem",
+            "Chave de acesso",
+        ],
+        [
+            [
+                e.id,
+                e.issue_date,
+                _counterpart(e),
+                format_cnpj(e.supplier.cnpj) if e.supplier and e.supplier.cnpj else "",
+                e.number or "",
+                e.proposal or "",
+                e.entry_type,
+                e.employee.name if e.employee else "",
+                "Sim" if e.reimbursable else "Não",
+                e.payment_method or "",
+                (e.total_cents or 0) / 100,
+                STATUS_LABELS[e.status],
+                SOURCE_LABELS[e.source],
+                e.access_key or "",
+            ]
+            for e in expenses
+        ],
+        {2: DATE, 11: MONEY},
     )
 
     buffer = io.BytesIO()

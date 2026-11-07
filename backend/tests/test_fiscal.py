@@ -307,11 +307,79 @@ def test_exportacao_excel(client):
     response = client.get("/api/expenses/export.xlsx", params={"month": "2026-11"})
     assert response.status_code == 200
     workbook = load_workbook(io.BytesIO(response.content))
-    assert workbook.sheetnames == ["Lançamentos", "Itens", "Por categoria", "Reembolsos"]
-    row = [c.value for c in workbook["Lançamentos"][2]]
-    assert row[5:9] == ["Combustível da van", "Transporte", "Ana Souza", "Sim"]
-    assert row[10] == 200.0
+    assert workbook.sheetnames == [
+        "Planilha",
+        "Por proposta",
+        "Por categoria",
+        "Reembolsos",
+        "Notas",
+    ]
     assert [c.value for c in workbook["Reembolsos"][2]] == ["Ana Souza", 200.0]
+    notes = [c.value for c in workbook["Notas"][2]]
+    assert notes[6:9] == ["Despesas", "Ana Souza", "Sim"]
+
+
+def test_planilha_no_formato_da_empresa_uma_linha_por_item(client):
+    """Data | Mês | Cliente/Fornecedor | Proposta | Descrição | Tipo | Valor (R$)."""
+    upload = client.post(
+        "/api/expenses/upload",
+        files=[("files", ("nota.xml", make_nfe_xml(freight="0.00")))],
+        data={"proposal": "P-123"},
+    ).json()[0]
+    assert (upload["proposal"], upload["entry_type"]) == ("P-123", "Custo")  # com proposta
+    client.post(f"/api/expenses/{upload['id']}/confirm")
+    receita = next(
+        c["id"] for c in client.get("/api/categories").json() if c["name"] == "Receita de serviços"
+    )
+    income = client.post(
+        "/api/expenses",
+        json={
+            "issue_date": "2026-11-20",
+            "description": "Instalação de câmara fria",
+            "supplier_name": "Mercado Bom Preço",
+            "proposal": "P-123",
+            "entry_type": "Receita",
+            "items": [
+                {
+                    "description": "Instalação de câmara fria",
+                    "total_cents": 150000,
+                    "category_id": receita,
+                }
+            ],
+        },
+    ).json()
+    assert income["status"] == "confirmed"
+
+    workbook = load_workbook(
+        io.BytesIO(client.get("/api/expenses/export.xlsx", params={"month": "2026-11"}).content)
+    )
+    sheet = workbook["Planilha"]
+    assert [c.value for c in sheet[1]] == [
+        "Data",
+        "Mês",
+        "Cliente/Fornecedor",
+        "Proposta",
+        "Descrição",
+        "Tipo",
+        "Valor (R$)",
+    ]
+    rows = [[c.value for c in row] for row in sheet.iter_rows(min_row=2)]
+    assert len(rows) == 3  # 2 itens da nota + 1 receita
+    first = rows[0]
+    assert first[0].date() == date(2026, 11, 3)
+    assert first[1].date() == date(2026, 11, 1)  # mês como data, exibido "nov/26"
+    assert sheet["B2"].number_format == "MMM/YY"
+    assert first[2:] == ["FRIGELAR", "P-123", "FITA PVC 10M LINEAR", "Custo", 28.3]
+    assert rows[2][2:] == [
+        "Mercado Bom Preço",
+        "P-123",
+        "Instalação de câmara fria",
+        "Receita",
+        1500.0,
+    ]
+
+    by_proposal = [[c.value for c in row] for row in workbook["Por proposta"].iter_rows(min_row=2)]
+    assert by_proposal == [["P-123", 1500.0, 53.3, 0.0, 1446.7]]
 
 
 def test_apply_extraction_sem_itens_vai_para_revisao(db):

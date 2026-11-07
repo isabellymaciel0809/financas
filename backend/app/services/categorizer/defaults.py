@@ -29,6 +29,8 @@ DEFAULT_CATEGORIES: list[tuple[str, CategoryKind, str, str]] = [
     ("Salários e pró-labore", CategoryKind.expense, "#7c3aed", "👥"),
     ("Encargos trabalhistas", CategoryKind.expense, "#9333ea", "📑"),
     ("Benefícios a funcionários", CategoryKind.expense, "#c026d3", "🎁"),
+    ("Receita de serviços", CategoryKind.income, "#059669", "🧰"),
+    ("Receita de vendas", CategoryKind.income, "#0d9488", "🏷️"),
     ("Salário", CategoryKind.income, "#16a34a", "💰"),
     ("Renda extra", CategoryKind.income, "#0ea5e9", "💸"),
     ("Rendimentos", CategoryKind.income, "#84cc16", "📈"),

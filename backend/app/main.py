@@ -8,7 +8,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.database import Base, SessionLocal, engine
+from app.database import SessionLocal, engine
+from app.migrate import run_migrations
 from app.routers import assistant, dashboard, employees, expenses, misc, transactions
 from app.services.ingest import seed_categories
 
@@ -20,7 +21,7 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    Base.metadata.create_all(engine)
+    run_migrations(engine)
     with SessionLocal() as db:
         seed_categories(db)
     yield

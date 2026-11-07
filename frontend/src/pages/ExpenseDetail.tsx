@@ -2,10 +2,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ArrowLeft, CheckCircle2, FileCode2, Loader2, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Notify } from "../App";
-import { api, expensesApi, type ExpenseDetail as Detail, type ExpenseItemInput } from "../api";
+import {
+  api,
+  ENTRY_TYPES,
+  expensesApi,
+  isIncomeType,
+  type ExpenseDetail as Detail,
+  type ExpenseItemInput,
+} from "../api";
 import { Button, Card, SourceBadge } from "../components/ui";
 import { centsToInput, formatMoney, parseMoney } from "../format";
-import { StatusBadge } from "./Expenses";
+import { ProposalOptions, StatusBadge } from "./Expenses";
 
 interface ItemDraft {
   id?: number;
@@ -26,6 +33,8 @@ interface HeaderDraft {
   total: string;
   employee_id: string;
   reimbursable: boolean;
+  proposal: string;
+  entry_type: string;
 }
 
 const toDrafts = (d: Detail): { header: HeaderDraft; items: ItemDraft[] } => ({
@@ -38,6 +47,8 @@ const toDrafts = (d: Detail): { header: HeaderDraft; items: ItemDraft[] } => ({
     total: centsToInput(d.total_cents),
     employee_id: d.employee ? String(d.employee.id) : "",
     reimbursable: d.reimbursable,
+    proposal: d.proposal ?? "",
+    entry_type: d.entry_type,
   },
   items: d.items.map((i) => ({
     id: i.id,
@@ -140,6 +151,8 @@ export default function ExpenseDetail({ id, onBack, notify }: { id: number; onBa
       total_cents: parseMoney(header.total),
       employee_id: header.employee_id ? Number(header.employee_id) : null,
       reimbursable: header.reimbursable,
+      proposal: header.proposal.trim() || null,
+      entry_type: header.entry_type,
       items: parsedItems,
     };
   }
@@ -162,6 +175,7 @@ export default function ExpenseDetail({ id, onBack, notify }: { id: number; onBa
 
   return (
     <div className="space-y-4">
+      <ProposalOptions />
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" onClick={onBack} aria-label="Voltar">
           <ArrowLeft size={16} />
@@ -238,12 +252,26 @@ export default function ExpenseDetail({ id, onBack, notify }: { id: number; onBa
           <Card title="Dados do lançamento">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-xs text-slate-500">
-                Fornecedor
+                Cliente/Fornecedor
                 <input className={field} disabled={locked} value={header.supplier_name} onChange={(e) => setH("supplier_name", e.target.value)} />
               </label>
               <label className="text-xs text-slate-500">
                 CNPJ
                 <input className={field} disabled={locked} value={header.supplier_cnpj} onChange={(e) => setH("supplier_cnpj", e.target.value)} />
+              </label>
+              <label className="text-xs text-slate-500">
+                Proposta/obra
+                <input list="proposals" className={field} disabled={locked} value={header.proposal} onChange={(e) => setH("proposal", e.target.value)} placeholder="Ex.: P-123" />
+              </label>
+              <label className="text-xs text-slate-500">
+                Tipo
+                <select className={field} disabled={locked} value={header.entry_type} onChange={(e) => setH("entry_type", e.target.value)}>
+                  {[...new Set([...ENTRY_TYPES, header.entry_type])].map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="text-xs text-slate-500">
                 Data
@@ -326,7 +354,7 @@ export default function ExpenseDetail({ id, onBack, notify }: { id: number; onBa
                         >
                           <option value="">— escolher —</option>
                           {categories.data
-                            ?.filter((c) => c.kind === "expense")
+                            ?.filter((c) => c.kind === (isIncomeType(header.entry_type) ? "income" : "expense"))
                             .map((c) => (
                               <option key={c.id} value={c.id}>
                                 {c.icon} {c.name}

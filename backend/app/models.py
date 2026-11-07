@@ -131,6 +131,12 @@ class Expense(Base):
     employee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id"), nullable=True)
     # Pago do bolso do funcionário: a empresa deve devolver o valor a ele.
     reimbursable: Mapped[bool] = mapped_column(default=False)
+    # Nº da proposta/obra do cliente a que o lançamento pertence (custo de um serviço).
+    proposal: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    # Classificação da planilha da empresa: Custo, Despesas, Estoque, Receita, Caixa...
+    entry_type: Mapped[str] = mapped_column(
+        String(30), default="Despesas", server_default="Despesas"
+    )
 
     # Arquivo de origem (XML ou foto), guardado em UPLOAD_DIR.
     original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)

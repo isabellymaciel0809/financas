@@ -174,6 +174,8 @@ class ExpenseSummary(BaseModel):
     supplier: SupplierOut | None
     employee: EmployeeOut | None
     reimbursable: bool
+    proposal: str | None
+    entry_type: str
     number: str | None
     total_cents: int | None
     original_filename: str | None
@@ -203,6 +205,8 @@ class ExpenseUpdate(BaseModel):
     supplier_cnpj: str | None = Field(None, max_length=18)
     employee_id: int | None = None
     reimbursable: bool | None = None
+    proposal: str | None = Field(None, max_length=40)
+    entry_type: str | None = Field(None, min_length=1, max_length=30)
     items: list[ExpenseItemIn] | None = None
 
 
@@ -215,6 +219,8 @@ class ManualExpenseCreate(BaseModel):
     payment_method: str | None = Field(None, max_length=60)
     employee_id: int | None = None
     reimbursable: bool = False
+    proposal: str | None = Field(None, max_length=40)
+    entry_type: str | None = Field(None, min_length=1, max_length=30)
 
 
 class ExpenseQueueStatus(BaseModel):

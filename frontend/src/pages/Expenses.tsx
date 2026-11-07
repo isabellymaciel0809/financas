@@ -2,7 +2,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, Download, FileCode2, FileUp, Loader2, PenLine, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 import type { Notify } from "../App";
-import { api, expensesApi, type ExpenseSource, type ExpenseStatus, type ExpenseSummary } from "../api";
+import {
+  api,
+  ENTRY_TYPES,
+  expensesApi,
+  isIncomeType,
+  type ExpenseSource,
+  type ExpenseStatus,
+  type ExpenseSummary,
+} from "../api";
 import { Button, Card } from "../components/ui";
 import { formatDate, formatMoney, parseMoney } from "../format";
 import ExpenseDetail from "./ExpenseDetail";
@@ -28,6 +36,16 @@ const FILTERS: { id: ExpenseStatus | "all"; label: string }[] = [
   { id: "processing", label: "Na fila" },
 ];
 
+/** Sugestões de propostas já usadas, para os campos com list="proposals". */
+export function ProposalOptions() {
+  const proposals = useQuery({ queryKey: ["proposals"], queryFn: expensesApi.proposals });
+  return (
+    <datalist id="proposals">
+      {proposals.data?.map((p) => <option key={p} value={p} />)}
+    </datalist>
+  );
+}
+
 export function StatusBadge({ status }: { status: ExpenseStatus }) {
   const meta = STATUS_META[status];
   return (
@@ -45,6 +63,8 @@ export default function Expenses({ notify }: { notify: Notify }) {
   const [showManual, setShowManual] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [exportMonth, setExportMonth] = useState("");
+  const [batchProposal, setBatchProposal] = useState("");
+  const [batchType, setBatchType] = useState("");
   const input = useRef<HTMLInputElement>(null);
 
   const expenses = useQuery({
@@ -56,9 +76,11 @@ export default function Expenses({ notify }: { notify: Notify }) {
   });
 
   const upload = useMutation({
-    mutationFn: expensesApi.upload,
+    mutationFn: (files: File[]) =>
+      expensesApi.upload(files, batchProposal.trim() || undefined, batchType || undefined),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["proposals"] });
       notify(`${created.length} arquivo(s) na fila de leitura. Você pode continuar usando o app.`);
     },
     onError: (error) => notify(error.message, "error"),
@@ -114,6 +136,35 @@ export default function Expenses({ notify }: { notify: Notify }) {
         />
       )}
 
+      <ProposalOptions />
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+        <p className="w-full text-sm font-medium text-slate-700">Enviar notas e cupons</p>
+        <label className="text-xs text-slate-500">
+          Proposta/obra (opcional, vale para todos os arquivos)
+          <input
+            list="proposals"
+            value={batchProposal}
+            onChange={(e) => setBatchProposal(e.target.value)}
+            placeholder="Ex.: P-123"
+            className="mt-1 block w-48 rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
+          />
+        </label>
+        <label className="text-xs text-slate-500">
+          Tipo
+          <select
+            value={batchType}
+            onChange={(e) => setBatchType(e.target.value)}
+            className="mt-1 block w-48 rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
+          >
+            <option value="">Automático ({batchProposal.trim() ? "Custo" : "Despesas"})</option>
+            {ENTRY_TYPES.filter((t) => !isIncomeType(t)).map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -178,7 +229,9 @@ export default function Expenses({ notify }: { notify: Notify }) {
               <thead className="text-left text-xs tracking-wide text-slate-500 uppercase">
                 <tr className="border-b border-slate-200">
                   <th className="py-2 pr-3 font-medium">Data</th>
-                  <th className="py-2 pr-3 font-medium">Fornecedor / descrição</th>
+                  <th className="py-2 pr-3 font-medium">Cliente/Fornecedor</th>
+                  <th className="py-2 pr-3 font-medium">Proposta</th>
+                  <th className="py-2 pr-3 font-medium">Tipo</th>
                   <th className="py-2 pr-3 font-medium">Funcionário</th>
                   <th className="py-2 pr-3 text-right font-medium">Itens</th>
                   <th className="py-2 pr-3 text-right font-medium">Total</th>
@@ -219,6 +272,10 @@ function Row({ expense: e, onOpen }: { expense: ExpenseSummary; onOpen: () => vo
           </p>
         )}
       </td>
+      <td className="py-2 pr-3 whitespace-nowrap text-slate-600">{e.proposal ?? ""}</td>
+      <td className="py-2 pr-3 text-slate-600">
+        <span className={isIncomeType(e.entry_type) ? "font-medium text-emerald-700" : ""}>{e.entry_type}</span>
+      </td>
       <td className="py-2 pr-3 text-slate-600">
         {e.employee?.name ?? ""}
         {e.reimbursable && <span className="ml-1 text-xs text-violet-600">(reembolso)</span>}
@@ -246,8 +303,22 @@ function ManualForm({ notify, onDone }: { notify: Notify; onDone: (id: number | 
     employee_id: "",
     reimbursable: false,
     payment_method: "",
+    proposal: "",
+    entry_type: "",
   });
   const set = (key: keyof typeof form, value: string | boolean) => setForm((f) => ({ ...f, [key]: value }));
+  const entryType = form.entry_type || (form.proposal.trim() ? "Custo" : "Despesas");
+  const income = isIncomeType(entryType);
+  const categoryOptions = categories.data?.filter((c) => c.kind === (income ? "income" : "expense")) ?? [];
+  const changeType = (type: string) => {
+    // Receita usa categorias de entrada: começa em "Receita de serviços".
+    const serviceIncome = categories.data?.find((c) => c.name === "Receita de serviços");
+    setForm((f) => ({
+      ...f,
+      entry_type: type,
+      category_id: isIncomeType(type) && serviceIncome ? String(serviceIncome.id) : "",
+    }));
+  };
 
   const create = useMutation({
     mutationFn: expensesApi.createManual,
@@ -275,6 +346,8 @@ function ManualForm({ notify, onDone }: { notify: Notify; onDone: (id: number | 
             payment_method: form.payment_method.trim() || null,
             employee_id: form.employee_id ? Number(form.employee_id) : null,
             reimbursable: form.reimbursable,
+            proposal: form.proposal.trim() || null,
+            entry_type: entryType,
             items: [
               {
                 description: form.description.trim(),
@@ -288,7 +361,7 @@ function ManualForm({ notify, onDone }: { notify: Notify; onDone: (id: number | 
       >
         <label className="text-sm text-slate-600 sm:col-span-2">
           Descrição
-          <input className={field} value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Ex.: Salário outubro - Ana, Aluguel do galpão" required />
+          <input className={field} value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Ex.: Aluguel do galpão, Salário outubro - Ana, Pagamento do cliente" required />
         </label>
         <label className="text-sm text-slate-600">
           Valor (R$)
@@ -299,20 +372,32 @@ function ManualForm({ notify, onDone }: { notify: Notify; onDone: (id: number | 
           <input type="date" className={field} value={form.issue_date} onChange={(e) => set("issue_date", e.target.value)} required />
         </label>
         <label className="text-sm text-slate-600">
-          Categoria
-          <select className={field} value={form.category_id} onChange={(e) => set("category_id", e.target.value)}>
-            <option value="">Automática (regras)</option>
-            {categories.data
-              ?.filter((c) => c.kind === "expense")
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.icon} {c.name}
-                </option>
-              ))}
+          Tipo
+          <select className={field} value={entryType} onChange={(e) => changeType(e.target.value)}>
+            {ENTRY_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
           </select>
         </label>
         <label className="text-sm text-slate-600">
-          Fornecedor (opcional)
+          Proposta/obra (opcional)
+          <input list="proposals" className={field} value={form.proposal} onChange={(e) => set("proposal", e.target.value)} placeholder="Ex.: P-123" />
+        </label>
+        <label className="text-sm text-slate-600">
+          Categoria
+          <select className={field} value={form.category_id} onChange={(e) => set("category_id", e.target.value)}>
+            {!income && <option value="">Automática (regras)</option>}
+            {categoryOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.icon} {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm text-slate-600">
+          {income ? "Cliente" : "Fornecedor"} (opcional)
           <input className={field} value={form.supplier_name} onChange={(e) => set("supplier_name", e.target.value)} />
         </label>
         <label className="text-sm text-slate-600">

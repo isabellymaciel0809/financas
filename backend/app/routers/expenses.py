@@ -7,6 +7,7 @@ from fastapi import (
     BackgroundTasks,
     Depends,
     File,
+    Form,
     HTTPException,
     Query,
     Response,
@@ -40,6 +41,7 @@ from app.schemas import (
 )
 from app.services.categorizer.llm import LLMProvider
 from app.services.categorizer.pipeline import remember
+from app.services.fiscal.entry_types import INCOME_TYPES, default_entry_type
 from app.services.fiscal.export import build_workbook
 from app.services.fiscal.items import categorize_items
 from app.services.fiscal.processor import expense_queue, revalidate, upload_dir, upsert_supplier
@@ -55,10 +57,14 @@ XML_TYPES = {".xml"}
 async def upload(
     background: BackgroundTasks,
     files: list[UploadFile] = File(..., description="XML de NF-e/NFC-e ou fotos de cupons"),
+    proposal: str | None = Form(None, max_length=40, description="Proposta/obra do lote"),
+    entry_type: str | None = Form(None, max_length=30, description="Tipo (Custo, Estoque...)"),
     db: Session = Depends(get_db),
     provider: LLMProvider | None = Depends(get_llm_provider),
 ):
     """Recebe os arquivos e responde na hora; a leitura acontece numa fila em segundo plano."""
+    proposal = (proposal or "").strip() or None
+    entry_type = (entry_type or "").strip() or default_entry_type(proposal)
     limit = get_settings().max_upload_mb * 1024 * 1024
     created = []
     for file in files:
@@ -82,6 +88,8 @@ async def upload(
             status=ExpenseStatus.processing,
             original_filename=(file.filename or stored)[:255],
             stored_filename=stored,
+            proposal=proposal,
+            entry_type=entry_type,
             issues=[],
         )
         db.add(expense)
@@ -99,8 +107,11 @@ def create_manual(
 ):
     """Lançamento digitado: despesa sem nota, folha de pagamento, benefício etc."""
     _ensure_employee(db, payload.employee_id)
+    proposal = (payload.proposal or "").strip() or None
     expense = Expense(
         source=ExpenseSource.manual,
+        proposal=proposal,
+        entry_type=(payload.entry_type or "").strip() or default_entry_type(proposal),
         description=payload.description,
         issue_date=payload.issue_date,
         payment_method=payload.payment_method,
@@ -114,7 +125,9 @@ def create_manual(
     expense.total_cents = sum(i.total_cents for i in expense.items)
     db.flush()
     # Sem categoria escolhida: só regras e memória (instantâneo); a LLM fica para a revisão.
-    categorize_items(db, expense.items, provider=None)
+    # Receitas não passam pelas regras, que são de despesa.
+    if expense.entry_type not in INCOME_TYPES:
+        categorize_items(db, expense.items, provider=None)
     revalidate(expense)
     db.commit()
     db.refresh(expense)
@@ -130,6 +143,15 @@ def list_expenses(
     db: Session = Depends(get_db),
 ):
     return db.scalars(_filtered(status_filter, month, employee_id).limit(limit)).unique().all()
+
+
+@router.get("/proposals", response_model=list[str])
+def list_proposals(db: Session = Depends(get_db)):
+    """Propostas já usadas, para o autocompletar da interface."""
+    rows = db.scalars(
+        select(Expense.proposal).where(Expense.proposal.is_not(None)).distinct()
+    ).all()
+    return sorted(rows)
 
 
 @router.get("/queue", response_model=ExpenseQueueStatus)
@@ -177,6 +199,10 @@ def update_expense(expense_id: int, payload: ExpenseUpdate, db: Session = Depend
     for name in ("description", "issue_date", "total_cents", "payment_method", "reimbursable"):
         if name in fields:
             setattr(expense, name, getattr(payload, name))
+    if "proposal" in fields:
+        expense.proposal = (payload.proposal or "").strip() or None
+    if "entry_type" in fields and payload.entry_type:
+        expense.entry_type = payload.entry_type.strip()
     if "employee_id" in fields:
         _ensure_employee(db, payload.employee_id)
         expense.employee_id = payload.employee_id
