@@ -18,3 +18,8 @@ backend/static/
 # Documentos fiscais reais (nunca versionar)
 exemplos/cupons/
 backend/data/
+
+# Planilhas reais da empresa (nunca versionar)
+*.xlsx
+*.xlsm
+*.xls
