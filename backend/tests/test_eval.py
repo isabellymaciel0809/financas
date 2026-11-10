@@ -14,3 +14,15 @@ def test_avaliacao_baseline_de_regras():
     assert summary["rules"]["accuracy"] == 1.0
     assert summary["rules"]["coverage"] >= 0.65
     assert "Acerto de ponta a ponta" in report(summary, predictions, meta)
+
+
+def test_conjunto_de_teste_e_separado_do_de_desenvolvimento():
+    """O conjunto de teste só mede algo se não tiver nenhum estabelecimento do outro."""
+    from app.services.text import merchant_key
+
+    dev = {merchant_key(c.description) for c in load_cases(EVAL_DIR / "dataset.csv")}
+    test = load_cases(EVAL_DIR / "teste.csv")
+    assert len(test) >= 50
+    assert [c.description for c in test if merchant_key(c.description) in dev] == []
+    predictions, _ = run(test, Settings(llm_provider="none"))
+    assert summarize(predictions)["rules"]["accuracy"] == 1.0  # regra errada é bug

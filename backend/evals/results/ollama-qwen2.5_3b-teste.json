@@ -1,0 +1,516 @@
+{
+  "meta": {
+    "provider": "ollama",
+    "model": "qwen2.5:3b",
+    "seconds": 168.76,
+    "dataset": "teste.csv"
+  },
+  "summary": {
+    "total": 61,
+    "end_to_end_accuracy": 0.82,
+    "automation_rate": 1.0,
+    "rules": {
+      "coverage": 0.492,
+      "accuracy": 1.0
+    },
+    "llm": {
+      "received": 31,
+      "answered": 31,
+      "accuracy_answered": 0.645,
+      "accuracy_on_leftovers": 0.645,
+      "accuracy_confident": 0.645,
+      "accuracy_unsure": null,
+      "unsure_count": 0
+    }
+  },
+  "predictions": [
+    {
+      "description": "IFD*PIZZARIA BELLA NAPOLI",
+      "amount_cents": -6200,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SUBWAY CONSOLACAO",
+      "amount_cents": -2890,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "PAG*CAFEDAESQUINA",
+      "amount_cents": -1450,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "MADERO CONTAINER",
+      "amount_cents": -8970,
+      "expected": "Alimentação",
+      "predicted": "Mercado",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "SumUp *BAR DO ALEMAO",
+      "amount_cents": -4600,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "CHURRASCARIA FOGO DE CHAO",
+      "amount_cents": -21000,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "EC *SORVETERIA GELATO",
+      "amount_cents": -2200,
+      "expected": "Alimentação",
+      "predicted": "Alimentação",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "NAGUMO SUPERMERCADOS",
+      "amount_cents": -18745,
+      "expected": "Mercado",
+      "predicted": "Mercado",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SAVEGNAGO SUPERMERCADOS",
+      "amount_cents": -24310,
+      "expected": "Mercado",
+      "predicted": "Mercado",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SACOLAO SAO JORGE",
+      "amount_cents": -3860,
+      "expected": "Mercado",
+      "predicted": "Mercado",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "MERCADINHO DONA ROSA",
+      "amount_cents": -5630,
+      "expected": "Mercado",
+      "predicted": "Moradia",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "ZAFFARI BOURBON",
+      "amount_cents": -31280,
+      "expected": "Mercado",
+      "predicted": "Mercado",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "AUTO POSTO BR MANIA",
+      "amount_cents": -18000,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "VELOE PEDAGIO",
+      "amount_cents": -2460,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ZONA AZUL DIGITAL",
+      "amount_cents": -600,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "CPTM RECARGA",
+      "amount_cents": -5000,
+      "expected": "Transporte",
+      "predicted": "Transporte",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "OFICINA MECANICA DO TONINHO",
+      "amount_cents": -45000,
+      "expected": "Transporte",
+      "predicted": "Saúde",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "INDRIVER *VIAGEM",
+      "amount_cents": -1980,
+      "expected": "Transporte",
+      "predicted": "Compras",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "Pagamento de boleto - Condomínio Residencial Ipê",
+      "amount_cents": -78000,
+      "expected": "Moradia",
+      "predicted": "Moradia",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "LEROY MERLIN",
+      "amount_cents": -23590,
+      "expected": "Moradia",
+      "predicted": "Impostos e taxas",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "Pagamento de boleto - Aluguel Apartamento 42",
+      "amount_cents": -210000,
+      "expected": "Moradia",
+      "predicted": "Moradia",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "COPEL DISTRIBUICAO",
+      "amount_cents": -19840,
+      "expected": "Contas e serviços",
+      "predicted": "Contas e serviços",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SANEPAR",
+      "amount_cents": -8720,
+      "expected": "Contas e serviços",
+      "predicted": "Impostos e taxas",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "NET CLARO RESIDENCIAL",
+      "amount_cents": -12990,
+      "expected": "Contas e serviços",
+      "predicted": "Contas e serviços",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "VIVO RECARGA CELULAR",
+      "amount_cents": -3000,
+      "expected": "Contas e serviços",
+      "predicted": "Contas e serviços",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ULTRAGAZ",
+      "amount_cents": -12500,
+      "expected": "Contas e serviços",
+      "predicted": "Impostos e taxas",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "DROGARIA ONOFRE",
+      "amount_cents": -6780,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "HAPVIDA ASSISTENCIA MEDICA",
+      "amount_cents": -38900,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "LABORATORIO DELBONI",
+      "amount_cents": -14500,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ODONTOPREV",
+      "amount_cents": -5490,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "BLUEFIT ACADEMIA",
+      "amount_cents": -9990,
+      "expected": "Saúde",
+      "predicted": "Saúde",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ESCOLA DE IDIOMAS CNA",
+      "amount_cents": -32000,
+      "expected": "Educação",
+      "predicted": "Educação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "DESCOMPLICA",
+      "amount_cents": -4990,
+      "expected": "Educação",
+      "predicted": "Saúde",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "SARAIVA LIVRARIA",
+      "amount_cents": -7990,
+      "expected": "Educação",
+      "predicted": "Educação",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "MENSALIDADE ESCOLAR COLEGIO SANTA CLARA",
+      "amount_cents": -145000,
+      "expected": "Educação",
+      "predicted": "Educação",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "CINEPOLIS JK IGUATEMI",
+      "amount_cents": -6400,
+      "expected": "Lazer",
+      "predicted": "Lazer",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "TICKETMASTER BRASIL",
+      "amount_cents": -38000,
+      "expected": "Lazer",
+      "predicted": "Lazer",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "PARQUE HOPI HARI",
+      "amount_cents": -18900,
+      "expected": "Lazer",
+      "predicted": "Lazer",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "NINTENDO ESHOP",
+      "amount_cents": -29900,
+      "expected": "Lazer",
+      "predicted": "Compras",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "MAX STREAMING",
+      "amount_cents": -3490,
+      "expected": "Assinaturas",
+      "predicted": "Assinaturas",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "CRUNCHYROLL",
+      "amount_cents": -1499,
+      "expected": "Assinaturas",
+      "predicted": "Assinaturas",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "MICROSOFT 365",
+      "amount_cents": -3600,
+      "expected": "Assinaturas",
+      "predicted": "Assinaturas",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "APPLE MUSIC",
+      "amount_cents": -2190,
+      "expected": "Assinaturas",
+      "predicted": "Assinaturas",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "MERCADO LIVRE *COMPRA",
+      "amount_cents": -14990,
+      "expected": "Compras",
+      "predicted": "Compras",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "CASAS BAHIA",
+      "amount_cents": -129900,
+      "expected": "Compras",
+      "predicted": "Mercado",
+      "stage": "llm",
+      "confidence": 0.99
+    },
+    {
+      "description": "NETSHOES",
+      "amount_cents": -21990,
+      "expected": "Compras",
+      "predicted": "Compras",
+      "stage": "llm",
+      "confidence": 0.99
+    },
+    {
+      "description": "SHEIN BRASIL",
+      "amount_cents": -18730,
+      "expected": "Compras",
+      "predicted": "Compras",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "TOK STOK",
+      "amount_cents": -45900,
+      "expected": "Compras",
+      "predicted": "Compras",
+      "stage": "llm",
+      "confidence": 0.99
+    },
+    {
+      "description": "CVC VIAGENS",
+      "amount_cents": -189000,
+      "expected": "Viagem",
+      "predicted": "Viagem",
+      "stage": "llm",
+      "confidence": 0.99
+    },
+    {
+      "description": "HOTEL TRANSAMERICA",
+      "amount_cents": -62000,
+      "expected": "Viagem",
+      "predicted": "Viagem",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "CLICKBUS",
+      "amount_cents": -14500,
+      "expected": "Viagem",
+      "predicted": "Viagem",
+      "stage": "llm",
+      "confidence": 0.99
+    },
+    {
+      "description": "TARIFA SAQUE",
+      "amount_cents": -690,
+      "expected": "Impostos e taxas",
+      "predicted": "Impostos e taxas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "IOF ADICIONAL",
+      "amount_cents": -342,
+      "expected": "Impostos e taxas",
+      "predicted": "Impostos e taxas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "MULTA DETRAN SP",
+      "amount_cents": -19523,
+      "expected": "Impostos e taxas",
+      "predicted": "Impostos e taxas",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "Pix enviado - Fernanda Costa Ribeiro",
+      "amount_cents": -15000,
+      "expected": "Transferências",
+      "predicted": "Transferências",
+      "stage": "llm",
+      "confidence": 0.99
+    },
+    {
+      "description": "Transferência para conta Inter",
+      "amount_cents": -100000,
+      "expected": "Transferências",
+      "predicted": "Transferências",
+      "stage": "llm",
+      "confidence": 0.99
+    },
+    {
+      "description": "SAQUE 24H BANCO DO BRASIL",
+      "amount_cents": -20000,
+      "expected": "Outros",
+      "predicted": "Outros",
+      "stage": "llm",
+      "confidence": 0.99
+    },
+    {
+      "description": "Transferência recebida - Salário Beta Comércio Ltda",
+      "amount_cents": 485000,
+      "expected": "Salário",
+      "predicted": "Salário",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "Pix recebido - Aula particular de violão",
+      "amount_cents": 18000,
+      "expected": "Renda extra",
+      "predicted": "Renda extra",
+      "stage": "llm",
+      "confidence": 0.99
+    },
+    {
+      "description": "RENDIMENTO TESOURO SELIC",
+      "amount_cents": 3217,
+      "expected": "Rendimentos",
+      "predicted": "Rendimentos",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "Estorno - NETSHOES",
+      "amount_cents": 21990,
+      "expected": "Compras",
+      "predicted": "Outros",
+      "stage": "llm",
+      "confidence": 0.8
+    }
+  ]
+}

@@ -3,9 +3,15 @@
 Roda o mesmo código do app (pipeline real, banco SQLite em memória) sobre um conjunto de
 transações rotuladas à mão, e gera um relatório em evals/results/.
 
+Dois conjuntos rotulados:
+    dataset.csv  desenvolvimento: usado para ajustar regras e prompt (o número tende a ser otimista)
+    teste.csv    teste: estabelecimentos que não estão no outro; NUNCA ajuste nada olhando os
+                 erros dele, ou ele deixa de medir o que o app faz com transações novas
+
 Uso (dentro de backend/):
     python -m evals.run_eval                                   # só regras (baseline)
     python -m evals.run_eval --provider ollama --model qwen2.5:3b
+    python -m evals.run_eval --provider ollama --model qwen2.5:3b --dataset evals/teste.csv
     python -m evals.run_eval --provider anthropic              # pago; exige ANTHROPIC_API_KEY
 
 A etapa de memória não entra na avaliação: ela depende do histórico de correções do usuário.
@@ -156,7 +162,8 @@ def report(summary: dict, predictions: list[Prediction], meta: dict) -> str:
     lines = [
         f"# Avaliação da categorização: {model}",
         "",
-        f"{summary['total']} transações rotuladas · tempo total {meta['seconds']}s",
+        f"Conjunto `{meta.get('dataset', 'dataset.csv')}` · {summary['total']} transações "
+        f"rotuladas · tempo total {meta['seconds']}s",
         "",
         "| Métrica | Valor |",
         "|---|---|",
@@ -212,6 +219,7 @@ def main() -> None:
     settings = Settings(**overrides)
 
     predictions, meta = run(load_cases(args.dataset), settings)
+    meta["dataset"] = args.dataset.name
     summary = summarize(predictions)
     text = report(summary, predictions, meta)
 
@@ -220,6 +228,8 @@ def main() -> None:
     name = meta["provider"] + (
         f"-{meta['model'].replace(':', '_').replace('/', '_')}" if meta["model"] else ""
     )
+    if args.dataset.name != "dataset.csv":  # um arquivo por conjunto: um não apaga o outro
+        name += f"-{args.dataset.stem}"
     (out_dir / f"{name}.md").write_text(text, encoding="utf-8")
     (out_dir / f"{name}.json").write_text(
         json.dumps(
