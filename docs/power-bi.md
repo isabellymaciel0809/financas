@@ -51,8 +51,15 @@ in
     Tipos
 ```
 
-3. Renomeie a consulta para **Lancamentos** → **Fechar e aplicar**.
-4. Para atualizar depois: botão **Atualizar** na faixa de opções.
+3. O sistema exige login, então o Power BI pede credenciais na primeira vez: escolha
+   **Básico** e informe o **mesmo usuário e senha** que você usa para entrar no sistema. O
+   Power BI guarda essas credenciais (para trocar: **Arquivo → Opções e configurações →
+   Configurações da fonte de dados**). Se você trocar a senha no sistema, atualize aqui também.
+4. Renomeie a consulta para **Lancamentos** → **Fechar e aplicar**.
+5. Para atualizar depois: botão **Atualizar** na faixa de opções.
+
+> **Segurança:** o login Básico envia a senha em cada atualização. Em `http://localhost` ela não
+> sai do computador; se o sistema for publicado na rede ou na internet, use HTTPS.
 
 ## Medidas DAX (DRE)
 

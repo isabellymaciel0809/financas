@@ -95,8 +95,14 @@ export interface TransactionFilters {
   search?: string;
 }
 
+/** Disparado quando a sessão vence no meio do uso: a tela volta para o login. */
+export const AUTH_EXPIRED_EVENT = "auth:expired";
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, init);
+  if (response.status === 401 && !path.startsWith("/auth/")) {
+    window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+  }
   if (!response.ok) {
     let message = `Erro ${response.status}`;
     try {
@@ -113,6 +119,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 function json(method: string, body: unknown): RequestInit {
   return { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
 }
+
+// --- Login -------------------------------------------------------------------------------------
+
+export interface AuthStatus {
+  setup_required: boolean;
+  username: string | null;
+}
+
+export const authApi = {
+  status: () => request<AuthStatus>("/auth/status"),
+  setup: (username: string, password: string) =>
+    request<AuthStatus>("/auth/setup", json("POST", { username, password })),
+  login: (username: string, password: string) =>
+    request<AuthStatus>("/auth/login", json("POST", { username, password })),
+  logout: () => request<void>("/auth/logout", { method: "POST" }),
+  changePassword: (current_password: string, new_password: string) =>
+    request<void>("/auth/password", json("POST", { current_password, new_password })),
+  addUser: (username: string, password: string) =>
+    request<AuthStatus>("/auth/users", json("POST", { username, password })),
+};
 
 export const api = {
   health: () => request<Health>("/health"),

@@ -151,18 +151,19 @@ def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
 def categorize_pending(
     background: BackgroundTasks,
     provider: LLMProvider | None = Depends(get_llm_provider),
+    db: Session = Depends(get_db),
 ):
     """Envia as transações ainda sem categoria para a LLM, em segundo plano."""
     if provider is None or not provider.is_available():
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Nenhuma LLM disponível.")
-    pending = categorization_job.status().pending
+    pending = categorization_job.status(db).pending
     return CategorizeQueued(queued=queue_llm(background, provider, pending))
 
 
 @router.get("/categorize/status", response_model=CategorizationJobStatus)
-def categorize_status():
+def categorize_status(db: Session = Depends(get_db)):
     """Acompanha o job de categorização em segundo plano (o frontend consulta enquanto roda)."""
-    return categorization_job.status()
+    return categorization_job.status(db)
 
 
 def _ensure_category(db: Session, category_id: int) -> None:

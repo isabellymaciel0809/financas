@@ -22,6 +22,7 @@ from app.services.fiscal.keys import only_digits
 from app.services.fiscal.nfe_xml import NFeParseError, parse_nfe_xml
 from app.services.fiscal.photo import PhotoReadError, read_photo
 from app.services.fiscal.validation import validate
+from app.tenancy import user_session
 
 logger = logging.getLogger(__name__)
 
@@ -160,27 +161,32 @@ class ExpenseQueue:
             self.running = True
             while True:
                 self._rerun = False
-                while (expense_id := self._next()) is not None:
-                    self._process_one(expense_id, provider)
+                while (next_up := self._next()) is not None:
+                    self._process_one(*next_up, provider)
                 if not self._rerun:
                     break
         finally:
             self.running = False
             self._lock.release()
 
-    def _next(self) -> int | None:
+    def _next(self) -> tuple[int, int | None] | None:
+        """Próximo arquivo da fila (de qualquer usuário) e o dono dele."""
         with SessionLocal() as db:
-            return db.scalar(
-                select(Expense.id)
+            row = db.execute(
+                select(Expense.id, Expense.user_id)
                 .where(
                     Expense.status == ExpenseStatus.processing, Expense.stored_filename.is_not(None)
                 )
                 .order_by(Expense.id)
                 .limit(1)
-            )
+            ).first()
+            return (row[0], row[1]) if row else None
 
-    def _process_one(self, expense_id: int, provider: LLMProvider | None) -> None:
-        with SessionLocal() as db:
+    def _process_one(
+        self, expense_id: int, owner: int | None, provider: LLMProvider | None
+    ) -> None:
+        # Sessão do dono: fornecedor, duplicatas e memória de categorias são as dele.
+        with user_session(owner) as db:
             expense = db.get(Expense, expense_id)
             try:
                 process_expense(db, expense, provider)
@@ -192,12 +198,15 @@ class ExpenseQueue:
                 expense.issues = ["Erro inesperado ao ler o arquivo."]
             db.commit()
 
-    def processing_count(self) -> int:
-        with SessionLocal() as db:
-            return (
-                db.scalar(select(func.count()).where(Expense.status == ExpenseStatus.processing))
-                or 0
+    @staticmethod
+    def processing_count(db: Session) -> int:
+        """`db` é a sessão do usuário logado: conta só os arquivos dele."""
+        return (
+            db.scalar(
+                select(func.count(Expense.id)).where(Expense.status == ExpenseStatus.processing)
             )
+            or 0
+        )
 
 
 expense_queue = ExpenseQueue()

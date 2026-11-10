@@ -15,12 +15,14 @@ from dataclasses import dataclass
 
 from fastapi import BackgroundTasks
 from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import SessionLocal
 from app.models import CategorizedBy, Transaction
 from app.services.categorizer.llm import LLMProvider
 from app.services.categorizer.pipeline import categorize_transactions
+from app.tenancy import user_session
 
 logger = logging.getLogger(__name__)
 
@@ -52,15 +54,20 @@ class CategorizationJob:
             self.last_categorized, self.last_error = 0, None
             while True:
                 self._rerun = False
-                with SessionLocal() as db:
-                    pending = db.scalars(
-                        select(Transaction).where(Transaction.categorized_by == CategorizedBy.none)
-                    ).all()
-                    if pending:
+                # Uma rodada por dono: a memória e as categorias usadas são as de cada usuário.
+                for owner in self._owners_with_pending():
+                    with user_session(owner) as db:
+                        pending = db.scalars(
+                            select(Transaction).where(
+                                Transaction.categorized_by == CategorizedBy.none
+                            )
+                        ).all()
                         outcome = categorize_transactions(db, pending, provider, batch_size)
                         db.commit()
                         self.last_categorized += outcome.stats.llm
                         self.last_error = outcome.llm_error
+                    if self.last_error:
+                        break
                 if not self._rerun or self.last_error:
                     break
         except Exception:
@@ -70,11 +77,24 @@ class CategorizationJob:
             self.running = False
             self._lock.release()
 
-    def status(self) -> JobStatus:
-        with SessionLocal() as db:
-            pending = db.scalar(
-                select(func.count()).where(Transaction.categorized_by == CategorizedBy.none)
+    @staticmethod
+    def _owners_with_pending() -> list[int | None]:
+        with SessionLocal() as db:  # sem dono: enxerga todos, só para saber quem tem pendentes
+            return list(
+                db.scalars(
+                    select(Transaction.user_id)
+                    .where(Transaction.categorized_by == CategorizedBy.none)
+                    .distinct()
+                )
             )
+
+    def status(self, db: Session) -> JobStatus:
+        """`db` é a sessão do usuário logado: as pendentes contadas são só as dele."""
+        pending = db.scalar(
+            select(func.count(Transaction.id)).where(
+                Transaction.categorized_by == CategorizedBy.none
+            )
+        )
         return JobStatus(self.running, pending or 0, self.last_categorized, self.last_error)
 
 

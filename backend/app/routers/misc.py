@@ -13,11 +13,13 @@ from app.services.importer import StatementParseError
 from app.services.ingest import import_statement
 
 router = APIRouter()
+# Sem login: usado por health checks (Docker, monitoramento). Não expõe dados.
+public_router = APIRouter()
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 
-@router.get("/health", response_model=HealthOut, tags=["sistema"])
+@public_router.get("/health", response_model=HealthOut, tags=["sistema"])
 def health(provider: LLMProvider | None = Depends(get_llm_provider)):
     return HealthOut(
         status="ok",

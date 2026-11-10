@@ -58,7 +58,7 @@ def import_statement(
 
 
 def seed_categories(db: Session) -> None:
-    existing = set(db.scalars(select(Category.name)))
+    existing = set(db.scalars(select(Category.name).where(Category.user_id.is_(None))))
     for name, kind, color, icon, scope in DEFAULT_CATEGORIES:
         if name not in existing:
             db.add(Category(name=name, kind=kind, color=color, icon=icon, scope=scope))

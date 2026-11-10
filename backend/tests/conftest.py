@@ -9,9 +9,11 @@ os.environ["UPLOAD_DIR"] = tempfile.mkdtemp(prefix="financas-uploads-")
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
+from app.auth import require_user  # noqa: E402
 from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.deps import get_llm_provider  # noqa: E402
 from app.main import app  # noqa: E402
+from app.models import User  # noqa: E402
 from app.services.categorizer.llm import (  # noqa: E402
     CategoryOption,
     ChatResult,
@@ -71,6 +73,15 @@ class FakeLLM:
 
 @pytest.fixture
 def db():
+    # Trava de segurança: se o app for importado antes deste arquivo (ex.: um script que importa
+    # app.models e depois chama pytest.main), o engine aponta para o banco real e o drop_all
+    # abaixo apagaria os dados. Já aconteceu; por isso a checagem.
+    if str(engine.url) != "sqlite://":
+        pytest.exit(
+            f"Testes recusados: o banco é {engine.url}, não o banco em memória. Rode o pytest "
+            "direto, sem importar o app antes.",
+            returncode=1,
+        )
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     session = SessionLocal()
@@ -86,6 +97,17 @@ def fake_llm():
 
 @pytest.fixture
 def client(db, fake_llm):
+    """Cliente já logado: os testes de funcionalidade não precisam repetir o login."""
+    app.dependency_overrides[get_llm_provider] = lambda: fake_llm
+    app.dependency_overrides[require_user] = lambda: User(id=0, username="teste")
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def anon_client(db, fake_llm):
+    """Cliente sem login, para testar a autenticação de verdade."""
     app.dependency_overrides[get_llm_provider] = lambda: fake_llm
     with TestClient(app) as c:
         yield c

@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # local de 3B na CPU leva mais de 30 min por cupom. Vale a pena com o Claude.
     photo_llm_fallback: bool = False
     cors_origins: list[str] = ["http://localhost:5173"]
+    # Cookie de sessão só por HTTPS. Desligado por padrão porque o app roda em http://localhost;
+    # ligue (COOKIE_SECURE=true) ao publicar atrás de HTTPS.
+    cookie_secure: bool = False
 
     # Provedor de LLM usado como última etapa da categorização.
     #   ollama    -> modelo local, gratuito (padrão)

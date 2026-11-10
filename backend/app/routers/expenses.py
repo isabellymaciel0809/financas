@@ -162,9 +162,9 @@ def list_proposals(db: Session = Depends(get_db)):
 
 
 @router.get("/queue", response_model=ExpenseQueueStatus)
-def queue_status():
+def queue_status(db: Session = Depends(get_db)):
     return ExpenseQueueStatus(
-        running=expense_queue.running, processing=expense_queue.processing_count()
+        running=expense_queue.running, processing=expense_queue.processing_count(db)
     )
 
 

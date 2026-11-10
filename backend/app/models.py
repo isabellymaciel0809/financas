@@ -1,7 +1,19 @@
 import enum
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    JSON,
+    Date,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -37,9 +49,14 @@ class CategoryScope(enum.StrEnum):
 
 class Category(Base):
     __tablename__ = "categories"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_categories_user_name"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(60), unique=True)
+    name: Mapped[str] = mapped_column(String(60))
+    # Vazio = categoria padrão, vale para todos; preenchido = criada por esse usuário.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     kind: Mapped[CategoryKind] = mapped_column(Enum(CategoryKind), default=CategoryKind.expense)
     color: Mapped[str] = mapped_column(String(9), default="#64748b")
     icon: Mapped[str] = mapped_column(String(8), default="🏷️")
@@ -52,10 +69,38 @@ class Category(Base):
         return self.scope in (area, CategoryScope.both)
 
 
+class User(Base):
+    """Quem pode entrar no sistema. Cada usuário tem os próprios dados (app/tenancy.py)."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(60), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class UserSession(Base):
+    """Sessão aberta no login. Guarda só o hash do token: quem ler o banco não entra."""
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+
+    user: Mapped[User] = relationship(lazy="joined")
+
+
 class ImportBatch(Base):
     __tablename__ = "import_batches"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Dono da linha (app/tenancy.py filtra toda consulta por ele).
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     filename: Mapped[str] = mapped_column(String(255))
     source_format: Mapped[str] = mapped_column(String(30))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -63,8 +108,16 @@ class ImportBatch(Base):
 
 class Transaction(Base):
     __tablename__ = "transactions"
+    # Duas pessoas podem importar o mesmo extrato (ex.: conta conjunta): a deduplicação é por dono.
+    __table_args__ = (
+        UniqueConstraint("user_id", "fingerprint", name="uq_transactions_user_fingerprint"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Dono da linha (app/tenancy.py filtra toda consulta por ele).
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     date: Mapped[date] = mapped_column(Date, index=True)
     description: Mapped[str] = mapped_column(String(255))
     # Valores em centavos (int) para evitar erros de arredondamento de float.
@@ -72,7 +125,7 @@ class Transaction(Base):
     amount_cents: Mapped[int] = mapped_column(Integer)
     merchant_key: Mapped[str] = mapped_column(String(120), index=True)
     # Hash de (data, valor, descrição) para não importar a mesma linha duas vezes.
-    fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
+    fingerprint: Mapped[str] = mapped_column(String(64))
 
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
     categorized_by: Mapped[CategorizedBy] = mapped_column(
@@ -92,9 +145,16 @@ class MerchantMemory(Base):
     """Associação estabelecimento -> categoria aprendida com as correções do usuário."""
 
     __tablename__ = "merchant_memory"
+    __table_args__ = (
+        UniqueConstraint("user_id", "merchant_key", name="uq_merchant_memory_user_key"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    merchant_key: Mapped[str] = mapped_column(String(120), unique=True)
+    # Dono da linha (app/tenancy.py filtra toda consulta por ele).
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    merchant_key: Mapped[str] = mapped_column(String(120))
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id", ondelete="CASCADE"))
     hits: Mapped[int] = mapped_column(Integer, default=1)
 
@@ -120,9 +180,14 @@ class ExpenseSource(enum.StrEnum):
 
 class Supplier(Base):
     __tablename__ = "suppliers"
+    __table_args__ = (UniqueConstraint("user_id", "cnpj", name="uq_suppliers_user_cnpj"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    cnpj: Mapped[str | None] = mapped_column(String(14), unique=True, nullable=True)
+    # Dono da linha (app/tenancy.py filtra toda consulta por ele).
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    cnpj: Mapped[str | None] = mapped_column(String(14), nullable=True)
     name: Mapped[str] = mapped_column(String(160))
 
 
@@ -130,6 +195,10 @@ class Employee(Base):
     __tablename__ = "employees"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Dono da linha (app/tenancy.py filtra toda consulta por ele).
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(120))
     role: Mapped[str | None] = mapped_column(String(80), nullable=True)
     active: Mapped[bool] = mapped_column(default=True)
@@ -139,6 +208,10 @@ class Expense(Base):
     __tablename__ = "expenses"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Dono da linha (app/tenancy.py filtra toda consulta por ele).
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     source: Mapped[ExpenseSource] = mapped_column(Enum(ExpenseSource))
     status: Mapped[ExpenseStatus] = mapped_column(
         Enum(ExpenseStatus), default=ExpenseStatus.processing, index=True
@@ -203,6 +276,10 @@ class ExpenseItem(Base):
     __tablename__ = "expense_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Dono da linha (app/tenancy.py filtra toda consulta por ele).
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     expense_id: Mapped[int] = mapped_column(
         ForeignKey("expenses.id", ondelete="CASCADE"), index=True
     )
