@@ -6,6 +6,7 @@ from sqlalchemy import select
 from app.models import CategorizedBy, Category, Transaction
 from app.services.categorizer.pipeline import categorize_transactions, remember
 from app.services.categorizer.rules import match_rule
+from app.services.fiscal.items import categorize_items
 from app.services.text import merchant_key
 from tests.conftest import FakeLLM
 
@@ -142,3 +143,45 @@ def test_transacao_manual_nao_e_sobrescrita(db):
     tx.category_id = _category(db, "Lazer").id
     categorize_transactions(db, [tx], None)
     assert tx.category.name == "Lazer"
+
+
+# --- Pessoal x empresa -----------------------------------------------------------------------
+# Com as categorias de empresa na lista do extrato, o acerto da LLM na avaliação caiu de 62%
+# para 51% ("Venda OLX" virava "Receita de vendas", "SAQUE" virava "Fretes e entregas").
+# Estes testes rodam no CI, onde não há LLM, e impedem que a mistura volte.
+
+COMPANY_ONLY = {"Receita de vendas", "Receita de serviços", "Fretes e entregas"}
+PERSONAL_ONLY = {"Salário", "Renda extra", "Rendimentos"}
+
+
+def test_llm_do_extrato_so_ve_categorias_pessoais(db):
+    llm = FakeLLM()
+    categorize_transactions(db, [_tx(db, "Pix recebido - Venda OLX", 15000)], llm)
+    offered = set(llm.offered)
+    assert offered & COMPANY_ONLY == set()
+    assert PERSONAL_ONLY | {"Alimentação", "Outros"} <= offered
+
+
+def test_extrato_descarta_categoria_de_empresa_vinda_da_llm(db):
+    tx = _tx(db, "SAQUE BANCO24HORAS", -20000)
+    categorize_transactions(db, [tx], FakeLLM({"saque": ("Fretes e entregas", 0.9)}))
+    assert tx.categorized_by == CategorizedBy.none
+
+
+def test_regra_de_empresa_nao_vale_no_extrato(db):
+    # "correios" é regra de "Fretes e entregas" (itens de nota); no extrato fica para a LLM.
+    assert match_rule("CORREIOS AGENCIA CENTRO", -3500) == "Fretes e entregas"
+    tx = _tx(db, "CORREIOS AGENCIA CENTRO", -3500)
+    categorize_transactions(db, [tx], None)
+    assert tx.categorized_by == CategorizedBy.none
+
+
+def test_llm_dos_itens_de_nota_ve_categorias_de_empresa(db):
+    from app.models import ExpenseItem
+
+    llm = FakeLLM()
+    item = ExpenseItem(position=1, description="PECA XPTO 3/4", total_cents=1990)
+    categorize_items(db, [item], llm)
+    offered = set(llm.offered)
+    assert {"Fretes e entregas", "Materiais e manutenção", "Alimentação"} <= offered
+    assert offered & PERSONAL_ONLY == set()

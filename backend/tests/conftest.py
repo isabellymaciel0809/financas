@@ -41,6 +41,7 @@ class FakeLLM:
 
     def categorize(self, items: list[LLMItem], categories: list[CategoryOption]):
         self.calls.append(items)
+        self.offered = [c.name for c in categories]  # o que a LLM pôde escolher
         if self.fail:
             raise LLMError("LLM fora do ar")
         out = []

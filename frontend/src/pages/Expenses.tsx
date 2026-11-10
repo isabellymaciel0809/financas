@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import type { Notify } from "../App";
 import {
   api,
+  companyCategories,
   ENTRY_TYPES,
   expensesApi,
   isIncomeType,
@@ -299,7 +300,7 @@ function Row({ expense: e, onOpen }: { expense: ExpenseSummary; onOpen: () => vo
 }
 
 function ManualForm({ notify, onDone }: { notify: Notify; onDone: (id: number | null) => void }) {
-  const categories = useQuery({ queryKey: ["categories"], queryFn: api.categories });
+  const categories = useQuery({ queryKey: ["categories"], queryFn: api.categories, select: companyCategories });
   const employees = useQuery({ queryKey: ["employees"], queryFn: expensesApi.employees });
   const [form, setForm] = useState({
     issue_date: new Date().toISOString().slice(0, 10),

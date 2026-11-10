@@ -22,6 +22,19 @@ class CategorizedBy(enum.StrEnum):
     none = "none"  # ainda sem categoria
 
 
+class CategoryScope(enum.StrEnum):
+    """Onde a categoria vale: no extrato pessoal, nos lançamentos da empresa ou nos dois.
+
+    Separar evita que a LLM do extrato escolha "Receita de vendas" para uma venda no OLX ou
+    "Fretes e entregas" para um saque: com as categorias de empresa na lista, o acerto da LLM no
+    conjunto de avaliação caiu de 62% para 51%.
+    """
+
+    personal = "personal"
+    company = "company"
+    both = "both"
+
+
 class Category(Base):
     __tablename__ = "categories"
 
@@ -30,6 +43,13 @@ class Category(Base):
     kind: Mapped[CategoryKind] = mapped_column(Enum(CategoryKind), default=CategoryKind.expense)
     color: Mapped[str] = mapped_column(String(9), default="#64748b")
     icon: Mapped[str] = mapped_column(String(8), default="🏷️")
+    # Texto (e não Enum do banco) para a migração ser igual no SQLite e no PostgreSQL.
+    scope: Mapped[str] = mapped_column(
+        String(10), default=CategoryScope.both, server_default=CategoryScope.both
+    )
+
+    def applies_to(self, area: CategoryScope) -> bool:
+        return self.scope in (area, CategoryScope.both)
 
 
 class ImportBatch(Base):

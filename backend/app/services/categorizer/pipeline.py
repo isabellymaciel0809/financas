@@ -12,7 +12,14 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import CategorizedBy, Category, CategoryKind, MerchantMemory, Transaction
+from app.models import (
+    CategorizedBy,
+    Category,
+    CategoryKind,
+    CategoryScope,
+    MerchantMemory,
+    Transaction,
+)
 from app.schemas import CategorizationStats
 from app.services.categorizer.defaults import CATEGORY_DESCRIPTIONS
 from app.services.categorizer.llm import CategoryOption, LLMError, LLMItem, LLMProvider
@@ -36,7 +43,8 @@ def categorize_transactions(
     batch_size: int = 10,
 ) -> PipelineResult:
     result = PipelineResult()
-    categories = list(db.scalars(select(Category)))
+    # O extrato é pessoal: categorias só de empresa não entram nem nas regras nem na LLM.
+    categories = [c for c in db.scalars(select(Category)) if c.applies_to(CategoryScope.personal)]
     by_name = {c.name.casefold(): c for c in categories}
     memory = {m.merchant_key: m.category_id for m in db.scalars(select(MerchantMemory))}
 

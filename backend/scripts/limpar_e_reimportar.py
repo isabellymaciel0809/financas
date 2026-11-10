@@ -109,11 +109,16 @@ def main() -> None:
         sys.exit("Cancelado. Nada foi alterado.")
 
     print(f"\nBackup salvo em: {backup(db_path)}")
-    clear(db_path)
 
     sys.path.insert(0, str(BACKEND))
-    from app.database import SessionLocal
+    from app.database import SessionLocal, engine
+    from app.migrate import run_migrations
     from app.services.fiscal.company_sheet import import_sheet
+
+    # O banco pode estar numa versão antiga (ex.: restaurado de um backup): o código de importação
+    # usa o esquema atual, então as migrações vêm antes de tudo, como quando o app inicia.
+    run_migrations(engine)
+    clear(db_path)
 
     content = args.planilha.read_bytes()
     with SessionLocal() as db:
@@ -123,6 +128,8 @@ def main() -> None:
         f"({report.needs_review} para revisão por estarem incompletos na planilha), "
         f"{report.skipped} linha(s) ignorada(s) {report.skip_reasons or ''}"
     )
+    for warning in report.warnings:
+        print(f"  ATENÇÃO: {warning}")
     check_against_sheet(content, args.planilha.name)
 
 

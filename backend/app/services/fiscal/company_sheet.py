@@ -30,6 +30,7 @@ from app.services.fiscal.importer_utils import parse_cell_amount, parse_cell_dat
 from app.services.fiscal.items import categorize_items
 from app.services.fiscal.processor import upsert_supplier
 from app.services.fiscal.sheet_formats import SheetFormatError, open_workbook
+from app.services.fiscal.validation import brl
 from app.services.text import simplify
 
 # Nome normalizado do cabeçalho -> campo. simplify("Valor (R$)") == "valor r".
@@ -82,6 +83,9 @@ class ImportReport:
     skipped: int = 0
     skipped_rows: list[int] = field(default_factory=list)
     skip_reasons: dict[str, int] = field(default_factory=dict)  # motivo -> quantas linhas
+    # Linhas ignoradas que a planilha soma nos totais dela: os totais do sistema vão divergir
+    # até alguém corrigir a planilha. Cada aviso diz a linha, o valor e o que fazer.
+    warnings: list[str] = field(default_factory=list)
 
 
 FIELD_LABELS = {"date": "Data", "description": "Descrição", "value": "Valor"}
@@ -207,6 +211,27 @@ def read_rows(
     return rows, skipped
 
 
+def counted_by_sheet_warning(table: Table, row: int, reason: str) -> str | None:
+    """Aviso para uma linha ignorada que, mesmo assim, entra nos totais da planilha.
+
+    Os totais da planilha (ex.: aba "Série Mensal Caixa") somam o Valor por Tipo e Mês. Uma
+    linha sem data, mas com Valor, Tipo e Mês, é somada lá e não pode ser lançada aqui: os
+    totais divergem. Caso real: "Pix conveniencia", R$ 11,61, sem data; o Mês, uma fórmula
+    sobre a data vazia, deu 12, e a planilha somou o valor em dezembro.
+    """
+    cents = parse_cell_amount(_value(table, row, "value"))
+    entry_type = _text(_value(table, row, "entry_type"))
+    month = _value(table, row, "month")
+    if not cents or not entry_type or not isinstance(month, int | float) or not 1 <= month <= 12:
+        return None
+    description = _text(_value(table, row, "description")) or MISSING_DESCRIPTION
+    return (
+        f'Linha {row} ("{description}", {brl(cents)}, {entry_type}) foi ignorada ({reason}), '
+        f"mas a planilha soma esse valor no mês {int(month)}. Os totais desse mês vão diferir "
+        "até a linha ser corrigida na planilha e importada de novo."
+    )
+
+
 def _text(value: Any) -> str | None:
     if value is None:
         return None
@@ -231,6 +256,11 @@ def import_sheet(db: Session, content: bytes, filename: str = "planilha.xlsx") -
         skipped=len(skipped),
         skipped_rows=[r for r, _ in skipped[:20]],
         skip_reasons=dict(Counter(reason for _, reason in skipped).most_common()),
+        warnings=[
+            warning
+            for r, reason in skipped
+            if (warning := counted_by_sheet_warning(table, r, reason))
+        ],
     )
 
     # Lançamentos feitos no sistema (nota, cupom, manual) que a planilha também pode conter,

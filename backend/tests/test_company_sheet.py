@@ -70,6 +70,7 @@ def test_importa_historico_da_planilha(client):
         "skipped_rows": [9],
         # O openpyxl não salva o resultado das fórmulas; o Excel salvaria.
         "skip_reasons": {"fórmula sem resultado salvo (abra e salve no Excel)": 1},
+        "warnings": [],  # a linha de TOTAL não tem Tipo nem Mês: a planilha não a soma
     }
     expenses = client.get("/api/expenses").json()
     assert all(e["status"] == "confirmed" and e["from_spreadsheet"] for e in expenses)
@@ -308,3 +309,25 @@ def test_linhas_incompletas_da_planilha_vao_para_revisao_sem_inventar_dados(clie
 
     issues = [e["issues"] for e in client.get("/api/expenses").json()]
     assert any("sem Tipo" in i for issue in issues for i in issue)
+
+
+def test_avisa_quando_a_planilha_soma_uma_linha_ignorada(client):
+    """Caso real: linha sem data, mas com Valor, Tipo e Mês (fórmula sobre a data vazia que
+    deu 12). A planilha soma o valor em dezembro; o sistema não pode lançar sem data e avisa."""
+    wb = Workbook()
+    ws = wb.active
+    ws.append(HEADERS)
+    ws.append([datetime(2026, 8, 6), 8, None, None, "Material", "Custo", 100])
+    ws.append([None, 12, None, None, "Pix conveniencia ", "Despesa", 11.61])  # linha 3
+    ws.append([None, None, None, None, "Anotação solta", None, 50])  # sem Tipo nem Mês
+    ws.append([datetime(2026, 10, 15)])  # só a data: ignorada, mas não soma nada
+    buffer = io.BytesIO()
+    wb.save(buffer)
+
+    result = _import(client, buffer.getvalue()).json()
+    assert (result["imported"], result["skipped"]) == (1, 3)
+    assert result["warnings"] == [
+        'Linha 3 ("Pix conveniencia", R$ 11,61, Despesa) foi ignorada (sem data), mas a '
+        "planilha soma esse valor no mês 12. Os totais desse mês vão diferir até a linha ser "
+        "corrigida na planilha e importada de novo."
+    ]

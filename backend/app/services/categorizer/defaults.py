@@ -1,39 +1,44 @@
 """Categorias padrão e regras de palavra-chave (primeira linha da categorização, custo zero)."""
 
-from app.models import CategoryKind
+from app.models import CategoryKind, CategoryScope
 
-# (nome, tipo, cor, ícone)
-DEFAULT_CATEGORIES: list[tuple[str, CategoryKind, str, str]] = [
-    ("Alimentação", CategoryKind.expense, "#f97316", "🍔"),
-    ("Mercado", CategoryKind.expense, "#22c55e", "🛒"),
-    ("Transporte", CategoryKind.expense, "#3b82f6", "🚗"),
-    ("Moradia", CategoryKind.expense, "#8b5cf6", "🏠"),
-    ("Contas e serviços", CategoryKind.expense, "#06b6d4", "💡"),
-    ("Saúde", CategoryKind.expense, "#ef4444", "🩺"),
-    ("Educação", CategoryKind.expense, "#eab308", "📚"),
-    ("Lazer", CategoryKind.expense, "#ec4899", "🎉"),
-    ("Assinaturas", CategoryKind.expense, "#a855f7", "📺"),
-    ("Compras", CategoryKind.expense, "#f43f5e", "🛍️"),
-    ("Viagem", CategoryKind.expense, "#14b8a6", "✈️"),
-    ("Impostos e taxas", CategoryKind.expense, "#78716c", "🧾"),
-    ("Transferências", CategoryKind.expense, "#94a3b8", "🔁"),
-    ("Outros", CategoryKind.expense, "#64748b", "📦"),
-    # Categorias de empresa, usadas principalmente nos itens de notas fiscais.
-    ("Materiais e manutenção", CategoryKind.expense, "#0f766e", "🔧"),
-    ("Ferramentas e equipamentos", CategoryKind.expense, "#a16207", "🛠️"),
-    ("Limpeza e higiene", CategoryKind.expense, "#0284c7", "🧽"),
-    ("Escritório e informática", CategoryKind.expense, "#4f46e5", "🖇️"),
-    ("Serviços de terceiros", CategoryKind.expense, "#be185d", "🤝"),
-    ("Fretes e entregas", CategoryKind.expense, "#65a30d", "🚚"),
-    # Pessoal
-    ("Salários e pró-labore", CategoryKind.expense, "#7c3aed", "👥"),
-    ("Encargos trabalhistas", CategoryKind.expense, "#9333ea", "📑"),
-    ("Benefícios a funcionários", CategoryKind.expense, "#c026d3", "🎁"),
-    ("Receita de serviços", CategoryKind.income, "#059669", "🧰"),
-    ("Receita de vendas", CategoryKind.income, "#0d9488", "🏷️"),
-    ("Salário", CategoryKind.income, "#16a34a", "💰"),
-    ("Renda extra", CategoryKind.income, "#0ea5e9", "💸"),
-    ("Rendimentos", CategoryKind.income, "#84cc16", "📈"),
+_EXP, _INC = CategoryKind.expense, CategoryKind.income
+_PERSONAL, _COMPANY, _BOTH = CategoryScope.personal, CategoryScope.company, CategoryScope.both
+
+# (nome, tipo, cor, ícone, onde vale)
+DEFAULT_CATEGORIES: list[tuple[str, CategoryKind, str, str, CategoryScope]] = [
+    # Gastos do dia a dia: aparecem no extrato pessoal e também em notas da empresa
+    # (combustível, refeição, conta de energia...).
+    ("Alimentação", _EXP, "#f97316", "🍔", _BOTH),
+    ("Mercado", _EXP, "#22c55e", "🛒", _BOTH),
+    ("Transporte", _EXP, "#3b82f6", "🚗", _BOTH),
+    ("Moradia", _EXP, "#8b5cf6", "🏠", _BOTH),
+    ("Contas e serviços", _EXP, "#06b6d4", "💡", _BOTH),
+    ("Saúde", _EXP, "#ef4444", "🩺", _BOTH),
+    ("Educação", _EXP, "#eab308", "📚", _BOTH),
+    ("Lazer", _EXP, "#ec4899", "🎉", _BOTH),
+    ("Assinaturas", _EXP, "#a855f7", "📺", _BOTH),
+    ("Compras", _EXP, "#f43f5e", "🛍️", _BOTH),
+    ("Viagem", _EXP, "#14b8a6", "✈️", _BOTH),
+    ("Impostos e taxas", _EXP, "#78716c", "🧾", _BOTH),
+    ("Transferências", _EXP, "#94a3b8", "🔁", _BOTH),
+    ("Outros", _EXP, "#64748b", "📦", _BOTH),
+    # Empresa: itens de notas fiscais, folha e receitas da empresa.
+    ("Materiais e manutenção", _EXP, "#0f766e", "🔧", _COMPANY),
+    ("Ferramentas e equipamentos", _EXP, "#a16207", "🛠️", _COMPANY),
+    ("Limpeza e higiene", _EXP, "#0284c7", "🧽", _COMPANY),
+    ("Escritório e informática", _EXP, "#4f46e5", "🖇️", _COMPANY),
+    ("Serviços de terceiros", _EXP, "#be185d", "🤝", _COMPANY),
+    ("Fretes e entregas", _EXP, "#65a30d", "🚚", _COMPANY),
+    ("Salários e pró-labore", _EXP, "#7c3aed", "👥", _COMPANY),
+    ("Encargos trabalhistas", _EXP, "#9333ea", "📑", _COMPANY),
+    ("Benefícios a funcionários", _EXP, "#c026d3", "🎁", _COMPANY),
+    ("Receita de serviços", _INC, "#059669", "🧰", _COMPANY),
+    ("Receita de vendas", _INC, "#0d9488", "🏷️", _COMPANY),
+    # Pessoal: entradas no extrato de uma pessoa.
+    ("Salário", _INC, "#16a34a", "💰", _PERSONAL),
+    ("Renda extra", _INC, "#0ea5e9", "💸", _PERSONAL),
+    ("Rendimentos", _INC, "#84cc16", "📈", _PERSONAL),
 ]
 
 # Descrições usadas no prompt da LLM. Modelos pequenos erram muito com só o nome da categoria.

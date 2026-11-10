@@ -8,7 +8,16 @@ export interface Category {
   kind: "expense" | "income";
   color: string;
   icon: string;
+  /** Onde vale: extrato pessoal, lançamentos da empresa ou os dois. */
+  scope: "personal" | "company" | "both";
 }
+
+/** Categorias que fazem sentido no extrato pessoal (sem "Receita de vendas", "Fretes"...). */
+export const personalCategories = (categories: Category[]) =>
+  categories.filter((c) => c.scope !== "company");
+/** Categorias dos lançamentos da empresa (sem "Salário", "Renda extra"...). */
+export const companyCategories = (categories: Category[]) =>
+  categories.filter((c) => c.scope !== "personal");
 
 export interface Transaction {
   id: number;

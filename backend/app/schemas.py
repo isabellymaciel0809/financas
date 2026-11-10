@@ -2,7 +2,7 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models import CategorizedBy, CategoryKind, ExpenseSource, ExpenseStatus
+from app.models import CategorizedBy, CategoryKind, CategoryScope, ExpenseSource, ExpenseStatus
 
 
 class CategoryOut(BaseModel):
@@ -13,6 +13,7 @@ class CategoryOut(BaseModel):
     kind: CategoryKind
     color: str
     icon: str
+    scope: CategoryScope
 
 
 class CategoryCreate(BaseModel):
@@ -20,6 +21,7 @@ class CategoryCreate(BaseModel):
     kind: CategoryKind = CategoryKind.expense
     color: str = Field(default="#64748b", pattern=r"^#[0-9a-fA-F]{6}$")
     icon: str = Field(default="🏷️", max_length=8)
+    scope: CategoryScope = CategoryScope.both
 
 
 class TransactionOut(BaseModel):
@@ -271,3 +273,4 @@ class SpreadsheetImportResult(BaseModel):
     skipped: int
     skipped_rows: list[int]
     skip_reasons: dict[str, int]
+    warnings: list[str] = []

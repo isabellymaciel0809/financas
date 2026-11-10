@@ -5,7 +5,14 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import CategorizedBy, Category, CategoryKind, ExpenseItem, MerchantMemory
+from app.models import (
+    CategorizedBy,
+    Category,
+    CategoryKind,
+    CategoryScope,
+    ExpenseItem,
+    MerchantMemory,
+)
 from app.services.categorizer.defaults import CATEGORY_DESCRIPTIONS
 from app.services.categorizer.llm import CategoryOption, LLMError, LLMItem, LLMProvider
 from app.services.categorizer.pipeline import RULE_CONFIDENCE
@@ -29,7 +36,11 @@ def categorize_items(
     `supplier` e `from_ocr` dão contexto à LLM: "HANOMETRO" sozinho não diz nada, mas
     "item de OCR comprado na FRIGELAR" leva a "manômetro" (ferramenta de refrigeração).
     """
-    categories = [c for c in db.scalars(select(Category)) if c.kind == CategoryKind.expense]
+    categories = [
+        c
+        for c in db.scalars(select(Category))
+        if c.kind == CategoryKind.expense and c.applies_to(CategoryScope.company)
+    ]
     by_name = {c.name.casefold(): c for c in categories}
     memory = {m.merchant_key: m.category_id for m in db.scalars(select(MerchantMemory))}
 

@@ -38,3 +38,29 @@ def test_banco_antigo_sem_historico_recebe_as_colunas_novas(tmp_path):
     columns = {c["name"] for c in inspect(engine).get_columns("expenses")}
     assert {"proposal", "entry_type"} <= columns
     assert _diff(engine) == []
+
+
+def test_banco_existente_recebe_o_escopo_das_categorias(tmp_path):
+    """Categorias de bancos antigos: as de empresa e as pessoais ganham o escopo certo."""
+    engine = _engine(tmp_path, "categorias.db")
+    config = alembic_config()
+    with engine.begin() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, "0004")
+        for name, kind in [("Receita de vendas", "income"), ("Salário", "income"),
+                           ("Mercado", "expense"), ("Minha categoria", "expense")]:  # fmt: skip
+            connection.exec_driver_sql(
+                "INSERT INTO categories (name, kind, color, icon) VALUES (?, ?, '#000000', 'x')",
+                (name, kind),
+            )
+
+    run_migrations(engine)
+
+    with engine.connect() as connection:
+        scopes = dict(connection.exec_driver_sql("SELECT name, scope FROM categories").all())
+    assert scopes == {
+        "Receita de vendas": "company",
+        "Salário": "personal",
+        "Mercado": "both",
+        "Minha categoria": "both",  # criada pelo usuário: continua valendo nos dois
+    }

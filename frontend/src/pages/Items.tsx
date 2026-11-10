@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Download, Search, X } from "lucide-react";
 import { useDeferredValue, useState } from "react";
 import type { Notify } from "../App";
-import { api, ENTRY_TYPES, isIncomeType, itemsApi, type GroupTotal, type ItemFilters } from "../api";
+import { api, companyCategories, ENTRY_TYPES, isIncomeType, itemsApi, type GroupTotal, type ItemFilters } from "../api";
 import { Card } from "../components/ui";
 import { formatDate, formatMoney } from "../format";
 import ExpenseDetail from "./ExpenseDetail";
@@ -30,7 +30,7 @@ export default function Items({ notify }: { notify: Notify }) {
     only_confirmed: onlyConfirmed,
   };
   const report = useQuery({ queryKey: ["items", filters], queryFn: () => itemsApi.list(filters) });
-  const categories = useQuery({ queryKey: ["categories"], queryFn: api.categories });
+  const categories = useQuery({ queryKey: ["categories"], queryFn: api.categories, select: companyCategories });
 
   if (openExpense !== null) {
     return <ExpenseDetail id={openExpense} onBack={() => setOpenExpense(null)} notify={notify} />;

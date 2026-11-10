@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Notify } from "../App";
 import {
   api,
+  companyCategories,
   ENTRY_TYPES,
   expensesApi,
   isIncomeType,
@@ -68,7 +69,7 @@ export default function ExpenseDetail({ id, onBack, notify }: { id: number; onBa
     queryFn: () => expensesApi.get(id),
     refetchInterval: (query) => (query.state.data?.status === "processing" ? 3000 : false),
   });
-  const categories = useQuery({ queryKey: ["categories"], queryFn: api.categories });
+  const categories = useQuery({ queryKey: ["categories"], queryFn: api.categories, select: companyCategories });
   const employees = useQuery({ queryKey: ["employees"], queryFn: expensesApi.employees });
 
   const [header, setHeader] = useState<HeaderDraft | null>(null);

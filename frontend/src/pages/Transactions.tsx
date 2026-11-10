@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot, Search, Trash2 } from "lucide-react";
 import { useDeferredValue, useState } from "react";
 import type { Notify, OnQueued } from "../App";
-import { api, type Category, type Transaction } from "../api";
+import { api, personalCategories, type Category, type Transaction } from "../api";
 import { Button, Card, SourceBadge } from "../components/ui";
 import { formatDate, formatMoney } from "../format";
 
@@ -20,7 +20,7 @@ export default function Transactions({ notify, onQueued, jobRunning }: {
 
   const filters = { search: deferredSearch, month, category_id: categoryId, needs_review: needsReview };
   const transactions = useQuery({ queryKey: ["transactions", filters], queryFn: () => api.transactions(filters) });
-  const categories = useQuery({ queryKey: ["categories"], queryFn: api.categories });
+  const categories = useQuery({ queryKey: ["categories"], queryFn: api.categories, select: personalCategories });
   const health = useQuery({ queryKey: ["health"], queryFn: api.health });
 
   const refresh = () => {
