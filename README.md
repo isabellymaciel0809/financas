@@ -8,6 +8,16 @@ apontado. No fim do mês, exporta tudo para Excel.
 Tudo roda **sem custo e localmente**: OCR e modelo de linguagem (Ollama) na própria máquina,
 sem API paga, e os documentos fiscais não saem do computador.
 
+O sistema tem duas áreas, com dados e **categorias separados**:
+
+- **Empresa**: notas, cupons, planilha da empresa, funcionários e Power BI. Categorias como
+  "Materiais e manutenção", "Fretes e entregas" e "Receita de vendas".
+- **Pessoal**: extrato bancário, dashboard e assistente. Categorias como "Salário" e "Renda extra".
+
+Gastos do dia a dia (Alimentação, Transporte, Contas e serviços...) valem nas duas áreas. A
+separação existe porque misturar as listas derrubou o acerto da IA (veja
+[Avaliação da IA](#avaliação-da-ia)).
+
 ![CI](https://github.com/SEU-USUARIO/financas-ia/actions/workflows/ci.yml/badge.svg)
 
 <!-- Adicione aqui um GIF ou print: docs/demo.gif -->
@@ -43,6 +53,24 @@ sem API paga, e os documentos fiscais não saem do computador.
   Proposta | Descrição | Tipo | Valor (R$)`, uma linha por item), com abas de **resultado por
   proposta** (receitas − custos), totais por categoria, reembolsos e conferência das notas.
 - **Fila em segundo plano**: o envio responde na hora; a leitura acontece depois.
+- **Aviso de divergência com a planilha**: se uma linha não pode ser lançada (ex.: sem data), mas
+  a planilha soma o valor nos totais dela, a importação diz a linha, o valor e o mês afetado.
+
+### Login e dados individuais
+- **Cada pessoa tem o próprio organizador**: lançamentos, extrato, funcionários, categorias
+  criadas, memória de correções e Power BI. Ninguém vê, altera ou apaga os dados de outra pessoa,
+  nem acertando o número de um lançamento na URL.
+- O isolamento é **central** ([`app/tenancy.py`](backend/app/tenancy.py)): toda consulta de uma
+  sessão logada recebe `user_id = X` automaticamente (eventos do SQLAlchemy), e toda linha nova
+  recebe o dono. Assim, uma rota nova não "esquece" de filtrar. As filas em segundo plano
+  (leitura de notas, LLM) processam cada arquivo em nome do dono dele.
+- Usuário e senha em todas as rotas de dados. Senhas com **scrypt** e sal; a sessão é um cookie
+  `HttpOnly` e `SameSite=Lax`, e o banco guarda só o hash do token.
+- **Primeiro acesso**: sem nenhum usuário, a tela pede para criar a conta, e o que já estava no
+  sistema fica com ela. Depois, outras pessoas são cadastradas em **Minha conta** e começam vazias.
+- **Power BI** entra com login *Básico* (o mesmo usuário e senha), já que não guarda cookie.
+- Trocar a senha encerra as sessões abertas em outros aparelhos. Esqueceu a senha?
+  `python scripts/usuario.py NOME` (dentro de `backend/`) cria o usuário ou troca a senha.
 
 ### Finanças a partir do extrato bancário
 - **Importação de extratos** do Nubank (conta e cartão), Banco Inter, CSVs genéricos e **OFX**,
@@ -179,13 +207,20 @@ resultados das ferramentas; se não aparecer, a interface mostra um alerta.
 ## Avaliação da IA
 
 Não basta chamar uma LLM: é preciso medir se ela acerta. O diretório [`backend/evals/`](backend/evals/)
-tem **145 transações rotuladas à mão**, com casos difíceis de propósito (estornos, maquininhas,
-siglas, nomes de pessoas), e um script que roda o **mesmo pipeline do app** e mede cada etapa:
+tem dois conjuntos de transações rotuladas à mão, com casos difíceis de propósito (estornos,
+maquininhas, siglas, nomes de pessoas), e um script que roda o **mesmo pipeline do app** e mede
+cada etapa:
+
+- `dataset.csv` (**desenvolvimento**, 145 transações): usado para ajustar as regras e o prompt.
+- `teste.csv` (**teste**, 61 transações): nenhum estabelecimento em comum com o outro (um teste
+  garante isso) e **nunca** usado para ajustar nada. É ele que mede o que o app faz com
+  transações novas.
 
 ```bash
 cd backend
 python -m evals.run_eval                                    # só regras
 python -m evals.run_eval --provider ollama --model qwen2.5:3b
+python -m evals.run_eval --provider ollama --model qwen2.5:3b --dataset evals/teste.csv
 ```
 
 | Configuração | Acerto de ponta a ponta | Pendentes | LLM: acerto no que as regras não resolveram |
@@ -194,8 +229,17 @@ python -m evals.run_eval --provider ollama --model qwen2.5:3b
 | Regras + `qwen2.5:3b`, prompt inicial | 73,8% | 27 | 15,6% |
 | Regras + `qwen2.5:3b`, prompt revisado | **88,3%** | **2** | **62,2%** |
 
-As regras cobrem 69% das transações com 100% de acerto. Medido em um notebook com Intel i5 de 8ª
-geração, 8 GB de RAM e sem GPU: cerca de 4 minutos para as 45 transações que chegam à LLM.
+No conjunto de **teste** (o número que vale para transações novas):
+
+| Configuração | Acerto de ponta a ponta | Regras: cobertura | LLM: acerto no que as regras não resolveram |
+|---|---|---|---|
+| Só regras | 49,2% | 49,2% | — |
+| Regras + `qwen2.5:3b` | **82,0%** | 49,2% | **64,5%** |
+
+As regras acertam 100% quando se aplicam nos dois conjuntos, mas cobrem bem menos transações
+novas (49% contra 69%): foram escritas olhando o conjunto de desenvolvimento. A LLM se sai igual
+nos dois (62% e 64%), então generaliza. Medido em um notebook com Intel i5 de 8ª geração, 8 GB de
+RAM e sem GPU: cerca de 4 minutos para as 45 transações que chegam à LLM.
 
 O que a avaliação mostrou:
 
@@ -207,10 +251,15 @@ O que a avaliação mostrou:
    recurso e lotes de 10 em vez de 25. O acerto da LLM foi de 15,6% para 62,2%.
 3. **A confiança informada pelo modelo não serve.** Ele diz ≥ 60% de confiança inclusive quando
    erra, então ela não é usada para decidir o que revisar.
+4. **Uma regressão que nenhum teste pegou.** Quando as categorias de empresa entraram no
+   sistema, a LLM do extrato passou a vê-las e o acerto dela caiu de 62,2% para 51,1% ("Venda
+   OLX" virava *Receita de vendas*, "SAQUE BANCO24HORAS" virava *Fretes e entregas*). Os testes
+   não notaram porque a avaliação com LLM não roda no CI. A correção foi dar a cada categoria
+   um escopo (pessoal, empresa ou ambos) e o acerto voltou a 62,2%. Agora testes com um
+   provedor falso, que rodam no CI, verificam que o extrato nunca recebe categorias de empresa.
 
-> **Limitação:** o prompt foi ajustado olhando os erros deste mesmo conjunto, então 62,2% tende
-> a ser otimista. As descrições das categorias são genéricas e não citam lojas do conjunto, mas
-> o ideal é um segundo conjunto, separado, só para teste.
+> **Limitação:** os dois conjuntos foram rotulados pela mesma pessoa, e o de teste ainda é
+> pequeno (61 transações): uma transação a mais ou a menos muda o acerto em 1,6 ponto.
 
 ## Stack
 
@@ -267,12 +316,13 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 | `ANTHROPIC_API_KEY` | — | Só para `LLM_PROVIDER=anthropic` (serviço pago) |
 | `UPLOAD_DIR` | `./data/uploads` | Onde ficam os XMLs e fotos enviados |
 | `PHOTO_LLM_FALLBACK` | `false` | Reler por LLM cupons cuja soma não fecha (recomendado só com modelo rápido) |
+| `COOKIE_SECURE` | `false` | Cookie de sessão só por HTTPS: ligue ao publicar o sistema com HTTPS |
 
 ## Testes
 
 ```bash
 cd backend
-pytest          # 100 testes: notas e cupons, planilha da empresa, itens, migrações, IA e API
+pytest          # 130 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
 ruff check .
 ```
 
@@ -282,9 +332,11 @@ O CI roda lint, testes, o build do frontend e o build da imagem Docker a cada pu
 
 ```
 backend/app/
-├── main.py                  # app FastAPI, CORS, frontend estático
+├── main.py                  # app FastAPI, CORS, frontend estático, rotas protegidas
+├── auth.py                  # senhas (scrypt), sessões por cookie e HTTP Basic (Power BI)
+├── tenancy.py               # isolamento: cada usuário só enxerga as próprias linhas
 ├── models.py / schemas.py   # SQLAlchemy e Pydantic
-├── routers/                 # lançamentos, funcionários, extrato, dashboard, assistente
+├── routers/                 # login, lançamentos, funcionários, extrato, dashboard, assistente, BI
 └── services/
     ├── fiscal/
     │   ├── nfe_xml.py       # XML de NF-e/NFC-e (layout 4.00)
@@ -304,7 +356,8 @@ backend/app/
         ├── rules.py         # regras de palavra-chave
         ├── defaults.py      # categorias e palavras-chave padrão
         └── llm.py           # provedores Ollama e Anthropic: categorização e tool use
-backend/evals/               # conjunto rotulado + script de avaliação
+backend/evals/               # conjuntos rotulados (desenvolvimento e teste) + avaliação
+backend/scripts/             # reimportar a planilha da empresa; criar usuário / trocar senha
 frontend/src/
 ├── pages/                   # Lançamentos, revisão, Funcionários, Extrato, Assistente
 └── components/ui.tsx
@@ -316,10 +369,13 @@ frontend/src/
 - [ ] Conciliação: ligar cada lançamento ao pagamento no extrato bancário
 - [ ] Conjunto de fotos de cupons rotuladas para medir o leitor como já é medida a categorização
 - [ ] Avaliação automatizada do assistente (perguntas com respostas esperadas), como já existe para a categorização
-- [ ] Segundo conjunto rotulado, separado, só para teste (evita ajustar o prompt para a prova)
+- [x] Segundo conjunto rotulado, separado, só para teste (evita ajustar o prompt para a prova)
+- [ ] Aumentar o conjunto de teste e pedir a outra pessoa para rotular parte dele
 - [ ] Comparar modelos menores (`qwen2.5:1.5b`) e maiores com a mesma avaliação
 - [ ] Categoria "Cuidados pessoais" (barbearia, salão), hoje ausente e fonte de erro da LLM
 - [ ] Resumo mensal gerado pela IA, com alertas de gastos fora do padrão
 - [ ] Lançamento por texto livre ("gastei 45 no mercado ontem")
 - [ ] Métricas de acerto da IA em produção, a partir das correções do usuário
-- [ ] Autenticação e múltiplos usuários
+- [x] Login com múltiplos usuários, cada um com os próprios dados
+- [ ] Compartilhar um organizador entre pessoas (ex.: sócios da mesma empresa)
+- [ ] Limite de tentativas de login (hoje o scrypt só encarece a força bruta)
