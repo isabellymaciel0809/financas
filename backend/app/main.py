@@ -33,7 +33,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="Organizador de Finanças Pessoais",
+    title="Finanças",
     description="API de finanças pessoais com categorização automática por IA.",
     version="0.1.0",
     lifespan=lifespan,

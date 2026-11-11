@@ -179,7 +179,7 @@ def require_user(request: Request, db: Session = Depends(get_db)) -> User:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
             "Entre com seu usuário e senha.",
-            headers={"WWW-Authenticate": 'Basic realm="Financas IA", charset="UTF-8"'}
+            headers={"WWW-Authenticate": 'Basic realm="Financas", charset="UTF-8"'}
             if challenge
             else None,
         )

@@ -1,4 +1,4 @@
-# 🧾 Finanças IA: lançamento automático de notas fiscais e cupons
+# 🧾 Finanças: lançamento automático de notas fiscais e cupons
 
 Sistema para pequenas empresas que **substitui a planilha preenchida à mão**: você envia o XML
 da NF-e ou a foto do cupom fiscal, e o lançamento da despesa é feito sozinho, com fornecedor,
@@ -18,7 +18,7 @@ Gastos do dia a dia (Alimentação, Transporte, Contas e serviços...) valem nas
 separação existe porque misturar as listas derrubou o acerto da IA (veja
 [Avaliação da IA](#avaliação-da-ia)).
 
-![CI](https://github.com/isabellymaciel0809/financas-ia/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/isabellymaciel0809/financas/actions/workflows/ci.yml/badge.svg)
 
 <!-- Adicione aqui um GIF ou print: docs/demo.gif -->
 

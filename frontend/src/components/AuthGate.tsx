@@ -66,7 +66,7 @@ function LoginForm({ firstAccess }: { firstAccess: boolean }) {
           <span className="grid size-9 place-items-center rounded-xl bg-emerald-600 text-white">
             <Wallet size={18} />
           </span>
-          Finanças IA
+          Finanças
         </div>
         <div>
           <h1 className="text-lg font-semibold text-slate-900">{firstAccess ? "Criar a primeira conta" : "Entrar"}</h1>

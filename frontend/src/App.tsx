@@ -110,7 +110,7 @@ function Shell({ username }: { username: string }) {
             <span className="grid size-9 place-items-center rounded-xl bg-emerald-600 text-white">
               <Wallet size={18} />
             </span>
-            Finanças IA
+            Finanças
           </div>
           <nav className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {NAV.map(({ area, pages }) => (

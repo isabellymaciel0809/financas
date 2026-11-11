@@ -6,7 +6,7 @@
 #       + Ollama dentro do Docker (baixa ~2 GB na primeira vez). Neste caso, crie um arquivo .env
 #       ao lado deste com: OLLAMA_BASE_URL=http://ollama:11434
 #       Precisa de memória: com 8 GB de RAM no Windows, ficou lento demais (veja o README).
-name: financas-ia
+name: financas
 
 services:
   app:
