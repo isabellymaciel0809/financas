@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # Cookie de sessão só por HTTPS. Desligado por padrão porque o app roda em http://localhost;
     # ligue (COOKIE_SECURE=true) ao publicar atrás de HTTPS.
     cookie_secure: bool = False
+    # Ao iniciar, retomar arquivos em "Processando" e transações esperando a LLM. Os testes
+    # desligam para não disputar o banco em memória com uma thread a cada TestClient.
+    resume_queues_on_startup: bool = True
 
     # Provedor de LLM usado como última etapa da categorização.
     #   ollama    -> modelo local, gratuito (padrão)

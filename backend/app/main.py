@@ -10,8 +10,10 @@ from fastapi.staticfiles import StaticFiles
 from app.auth import require_user
 from app.config import get_settings
 from app.database import SessionLocal, engine
+from app.deps import get_llm_provider
 from app.migrate import run_migrations
 from app.routers import assistant, auth, bi, dashboard, employees, expenses, misc, transactions
+from app.services.background import resume_in_background
 from app.services.ingest import seed_categories
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -25,6 +27,8 @@ async def lifespan(_: FastAPI):
     run_migrations(engine)
     with SessionLocal() as db:
         seed_categories(db)
+    if get_settings().resume_queues_on_startup:
+        resume_in_background(get_llm_provider())
     yield
 
 

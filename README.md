@@ -52,7 +52,9 @@ separação existe porque misturar as listas derrubou o acerto da IA (veja
 - **Exportação para Excel no formato da planilha da empresa** (`Data | Mês | Cliente/Fornecedor |
   Proposta | Descrição | Tipo | Valor (R$)`, uma linha por item), com abas de **resultado por
   proposta** (receitas − custos), totais por categoria, reembolsos e conferência das notas.
-- **Fila em segundo plano**: o envio responde na hora; a leitura acontece depois.
+- **Fila em segundo plano**: o envio responde na hora; a leitura acontece depois. Se o servidor
+  reiniciar no meio, as notas em "Processando" e as transações esperando a LLM continuam
+  sozinhas ao iniciar (o estado da fila fica no banco, não só na memória).
 - **Aviso de divergência com a planilha**: se uma linha não pode ser lançada (ex.: sem data), mas
   a planilha soma o valor nos totais dela, a importação diz a linha, o valor e o mês afetado.
 
@@ -322,7 +324,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 130 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest          # 134 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
 ruff check .
 ```
 

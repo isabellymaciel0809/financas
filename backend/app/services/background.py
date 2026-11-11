@@ -19,9 +19,10 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import SessionLocal
-from app.models import CategorizedBy, Transaction
+from app.models import CategorizedBy, Expense, ExpenseStatus, Transaction
 from app.services.categorizer.llm import LLMProvider
 from app.services.categorizer.pipeline import categorize_transactions
+from app.services.fiscal.processor import expense_queue
 from app.tenancy import user_session
 
 logger = logging.getLogger(__name__)
@@ -107,3 +108,44 @@ def queue_llm(background: BackgroundTasks, provider: LLMProvider | None, pending
         return 0
     background.add_task(categorization_job.run, provider, get_settings().llm_batch_size)
     return pending
+
+
+def resume_pending_work(provider: LLMProvider | None) -> None:
+    """Retoma o que ficou pela metade quando o servidor parou.
+
+    As filas só eram disparadas por um envio novo. Se o servidor reiniciasse com notas em
+    "Processando" ou transações esperando a LLM, elas ficavam paradas até alguém enviar outro
+    arquivo. O estado das filas está no banco (status e `categorized_by`), então basta rodá-las
+    de novo ao iniciar.
+    """
+    try:
+        with SessionLocal() as db:  # sem dono: conta de todos os usuários
+            files = db.scalar(  # mesmo filtro da fila: só o que tem arquivo para ler
+                select(func.count(Expense.id)).where(
+                    Expense.status == ExpenseStatus.processing,
+                    Expense.stored_filename.is_not(None),
+                )
+            )
+            pending = db.scalar(
+                select(func.count(Transaction.id)).where(
+                    Transaction.categorized_by == CategorizedBy.none
+                )
+            )
+        if files:
+            logger.info("Retomando a leitura de %s arquivo(s) que ficaram na fila.", files)
+            expense_queue.run(provider)
+        # Depois dos arquivos: a LLM e o OCR disputam a mesma CPU.
+        if pending and provider is not None and provider.is_available():
+            logger.info("Retomando a categorização de %s transação(ões) pela LLM.", pending)
+            categorization_job.run(provider, get_settings().llm_batch_size)
+    except Exception:
+        logger.exception("Falha ao retomar as filas em segundo plano")
+
+
+def resume_in_background(provider: LLMProvider | None) -> threading.Thread:
+    """Roda `resume_pending_work` numa thread: ler fotos leva minutos e não pode travar o início."""
+    thread = threading.Thread(
+        target=resume_pending_work, args=(provider,), name="retomar-filas", daemon=True
+    )
+    thread.start()
+    return thread

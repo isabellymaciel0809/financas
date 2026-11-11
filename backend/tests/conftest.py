@@ -5,6 +5,7 @@ import tempfile
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["LLM_PROVIDER"] = "none"
 os.environ["UPLOAD_DIR"] = tempfile.mkdtemp(prefix="financas-uploads-")
+os.environ["RESUME_QUEUES_ON_STARTUP"] = "false"  # testado diretamente em test_retomada.py
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
