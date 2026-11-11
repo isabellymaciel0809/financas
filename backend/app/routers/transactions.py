@@ -1,5 +1,6 @@
 import hashlib
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -13,6 +14,9 @@ from app.routers.dashboard import month_range
 from app.schemas import (
     CategorizationJobStatus,
     CategorizeQueued,
+    CategoryOut,
+    TextEntryIn,
+    TextEntryPreview,
     TransactionCreate,
     TransactionOut,
     TransactionPage,
@@ -21,6 +25,7 @@ from app.schemas import (
 from app.services.background import categorization_job, queue_llm
 from app.services.categorizer.llm import LLMProvider
 from app.services.categorizer.pipeline import categorize_transactions, remember
+from app.services.quick_entry import NotUnderstood, parse_entry, suggest_category
 from app.services.text import merchant_key
 
 router = APIRouter(prefix="/transactions", tags=["transações"])
@@ -94,6 +99,33 @@ def create_transaction(
     db.commit()
     db.refresh(tx)
     return tx
+
+
+@router.post("/parse", response_model=TextEntryPreview)
+def parse_text_entry(
+    payload: TextEntryIn,
+    db: Session = Depends(get_db),
+    provider: LLMProvider | None = Depends(get_llm_provider),
+):
+    """Lançamento por texto ("gastei 45 no mercado ontem"): devolve a prévia, sem salvar.
+
+    Para salvar, o frontend manda a prévia (talvez corrigida) para POST /transactions, que
+    categoriza com a mesma cascata da importação.
+    """
+    try:
+        entry = parse_entry(payload.texto, date.today(), provider)
+    except NotUnderstood as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    suggestion = suggest_category(db, entry.description, entry.amount_cents)
+    return TextEntryPreview(
+        date=entry.date,
+        description=entry.description,
+        amount_cents=entry.amount_cents,
+        understood_by=entry.understood_by,
+        category=CategoryOut.model_validate(suggestion[0]) if suggestion else None,
+        category_source=suggestion[1] if suggestion else None,
+        warnings=entry.warnings,
+    )
 
 
 @router.patch("/{transaction_id}", response_model=TransactionUpdateResult)

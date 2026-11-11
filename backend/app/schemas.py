@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -41,6 +42,22 @@ class TransactionCreate(BaseModel):
     description: str = Field(min_length=1, max_length=255)
     amount_cents: int = Field(description="Negativo para despesa, positivo para receita")
     category_id: int | None = None
+
+
+class TextEntryIn(BaseModel):
+    texto: str = Field(min_length=1, max_length=200)
+
+
+class TextEntryPreview(BaseModel):
+    """Prévia do lançamento por texto: nada é salvo até o usuário confirmar."""
+
+    date: date
+    description: str
+    amount_cents: int  # negativo = despesa
+    understood_by: Literal["regras", "ia"]
+    category: CategoryOut | None = None  # sugestão da memória ou das regras (sem LLM)
+    category_source: Literal["memory", "rule"] | None = None
+    warnings: list[str] = []
 
 
 class TransactionUpdate(BaseModel):

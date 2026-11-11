@@ -3,6 +3,7 @@ import { Bot, Search, Trash2 } from "lucide-react";
 import { useDeferredValue, useState } from "react";
 import type { Notify, OnQueued } from "../App";
 import { api, personalCategories, type Category, type Transaction } from "../api";
+import QuickEntry from "../components/QuickEntry";
 import { Button, Card, SourceBadge } from "../components/ui";
 import { formatDate, formatMoney } from "../format";
 
@@ -72,6 +73,8 @@ export default function Transactions({ notify, onQueued, jobRunning }: {
           {jobRunning ? "IA trabalhando..." : "Categorizar pendentes com IA"}
         </Button>
       </div>
+
+      <QuickEntry notify={notify} onQueued={onQueued} llmReady={llmReady} />
 
       <Card>
         <div className="mb-4 flex flex-wrap gap-3">

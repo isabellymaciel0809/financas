@@ -50,6 +50,25 @@ test("visão geral: dados de exemplo mostram o alerta de gasto fora do padrão",
   await expect(page.getByText("Categorizado automaticamente")).toBeVisible();
 });
 
+test("extrato: lançamento por texto mostra a prévia e só salva ao confirmar", async ({ page }) => {
+  await entrar(page);
+  await page.getByRole("button", { name: "Extrato", exact: true }).click();
+  await page.getByLabel("Lançamento por texto").fill("gastei 45,90 na padaria bella vista ontem");
+  await page.getByRole("button", { name: "Ler" }).click();
+
+  const previa = page.getByRole("region", { name: "Prévia do lançamento" });
+  await expect(previa).toBeVisible();
+  await expect(previa.getByLabel("Descrição")).toHaveValue("Padaria bella vista");
+  await expect(previa.getByLabel("Valor (R$)")).toHaveValue("45,90");
+  await expect(previa).toContainText("Alimentação");
+  await expect(page.getByRole("row").filter({ hasText: /Padaria bella vista/ })).toHaveCount(0);
+
+  await previa.getByRole("button", { name: "Lançar" }).click();
+  await expect(previa).toBeHidden();
+  const linha = page.getByRole("row").filter({ hasText: /Padaria bella vista/ });
+  await expect(linha).toContainText("-R$ 45,90");
+});
+
 test("login: senha errada mostra o erro e não entra", async ({ page }) => {
   await entrar(page, "senha-errada-123");
   await expect(page.getByRole("alert")).toHaveText("Usuário ou senha incorretos.");

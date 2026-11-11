@@ -107,6 +107,8 @@ separação existe porque misturar as listas derrubou o acerto da IA (veja
   50% acima da média **e** pelo menos R$ 50 a mais (para R$ 12 contra R$ 8 não virar alerta),
   e a média conta só os meses em que houve movimento, então quem começou a usar o app no mês
   passado não tem meses vazios contados como "gastou zero".
+- **Lançamento por texto**: "gastei 45 no mercado ontem" ou "recebi 300 de freela dia 5" viram
+  uma prévia editável, salva só quando você confirma. Veja [Lançamento por texto](#lançamento-por-texto).
 - **Dados de exemplo** com um clique, para conhecer o app sem precisar do seu extrato.
 
 ## Leitura de notas e cupons
@@ -224,6 +226,28 @@ resultados das ferramentas; se não aparecer, a interface mostra um alerta.
   LLM como mensagem, para ela corrigir sozinha.
 - As ferramentas são só de leitura. O loop tem limite de passos e o histórico, de tamanho.
 - O loop do Ollama é testado com um servidor HTTP simulado (`httpx.MockTransport`), sem rede.
+
+### Lançamento por texto
+
+A mesma cascata da categorização: **um leitor por padrões primeiro, a LLM só se ele não
+entender**. Ele cobre as frases comuns na hora (valor com ou sem "R$", "1,5 mil", "ontem", "dia
+5", "na sexta", "25/12"). A LLM entra quando o valor está por extenso ("netflix vinte e cinco") ou
+quando há mais de um número sem "R$" ("2 pizzas por 80").
+
+Testado com o `qwen2.5:3b` real, a primeira versão deixava a LLM decidir tudo e errou 3 de 7
+frases: marcou "netflix vinte e cinco" como **receita**, ignorou o "sexta" de "no bar sexta" e
+inventou a palavra "Vendendo" na descrição. A versão atual tira essas tarefas do modelo:
+
+- **Data e tipo (despesa ou receita) são do backend**, pelas mesmas palavras-chave das regras.
+  A LLM só devolve o valor e a descrição.
+- **A descrição só pode ter palavras da frase**: o que o modelo inventa é descartado.
+- **Checagem de fatos no valor**: se a frase tem números, o valor precisa ser um deles. Em "2
+  pizzas por 80", o modelo respondeu 160 (calculou 2 × 80) e o backend recusou.
+- **Avisos na prévia**: valor por extenso ou outros números na frase ("3 cafés de 7 reais": 7
+  ou 21?) pedem para conferir.
+
+Com isso, as 7 frases do teste saíram certas (ou com o aviso certo), em 4 a 11 s cada na CPU
+quando a LLM é usada e na hora quando o leitor por padrões resolve.
 
 ## Avaliação da IA
 
@@ -362,7 +386,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 155 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest          # 180 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
 ruff check .
 
 cd frontend
@@ -371,7 +395,8 @@ npm run test:e2e                  # teste end-to-end num navegador de verdade
 ```
 
 O **teste end-to-end** (Playwright) abre o app num Chromium, cria a conta, envia um XML de nota
-fiscal, carrega os dados de exemplo e confere o alerta do dashboard e o erro de senha. Ele sobe
+fiscal, carrega os dados de exemplo, confere o alerta do dashboard, faz um lançamento por texto
+e testa o erro de senha. Ele sobe
 a API sozinho, com um banco novo numa pasta temporária ([`scripts/e2e_server.py`](backend/scripts/e2e_server.py)),
 então nunca toca no banco de desenvolvimento. Logo na primeira execução, ele achou um falso
 alarme que os testes de unidade tratavam como "esperado": **toda NF-e com desconto num item ia
@@ -431,7 +456,7 @@ frontend/src/
 - [ ] Categoria "Cuidados pessoais" (barbearia, salão), hoje ausente e fonte de erro da LLM
 - [x] Alertas de gastos fora do padrão no dashboard
 - [ ] Resumo mensal escrito pela IA, a partir dos alertas (com checagem de fatos)
-- [ ] Lançamento por texto livre ("gastei 45 no mercado ontem")
+- [x] Lançamento por texto livre ("gastei 45 no mercado ontem")
 - [ ] Métricas de acerto da IA em produção, a partir das correções do usuário
 - [x] Login com múltiplos usuários, cada um com os próprios dados
 - [ ] Compartilhar um organizador entre pessoas (ex.: sócios da mesma empresa)

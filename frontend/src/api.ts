@@ -29,6 +29,17 @@ export interface Transaction {
   confidence: number | null;
 }
 
+/** Prévia do lançamento por texto ("gastei 45 no mercado ontem"): nada foi salvo ainda. */
+export interface TextEntryPreview {
+  date: string;
+  description: string;
+  amount_cents: number; // negativo = despesa
+  understood_by: "regras" | "ia";
+  category: Category | null; // sugestão da memória ou das regras
+  category_source: "memory" | "rule" | null;
+  warnings: string[];
+}
+
 export interface CategorizationStats {
   memory: number;
   rule: number;
@@ -170,6 +181,10 @@ export const api = {
       `/transactions/${id}`,
       json("PATCH", { category_id: categoryId }),
     ),
+  parseTextEntry: (texto: string) =>
+    request<TextEntryPreview>("/transactions/parse", json("POST", { texto })),
+  createTransaction: (body: { date: string; description: string; amount_cents: number }) =>
+    request<Transaction>("/transactions", json("POST", body)),
   deleteTransaction: (id: number) =>
     request<void>(`/transactions/${id}`, { method: "DELETE" }),
   categorizePending: () =>

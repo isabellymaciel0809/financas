@@ -58,6 +58,15 @@ class FakeLLM:
                     break
         return out
 
+    # Extração estruturada (lançamento por texto, cupons): devolve o dicionário configurado.
+    extraction: dict | None = None
+
+    def extract_json(self, system, user, schema):
+        if self.fail:
+            raise LLMError("LLM fora do ar")
+        self.last_extract = user
+        return dict(self.extraction or {})
+
     # Assistente: executa as chamadas de ferramenta roteirizadas e devolve os resultados.
     chat_script: list[tuple[str, dict]] = []
     tool_results: list[dict] = []
