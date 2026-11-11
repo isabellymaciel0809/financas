@@ -93,6 +93,15 @@ def test_gastos_por_categoria_sem_acento_e_mes_especifico(toolbox):
     assert result["periodo"] == "01/09/2026 a 30/09/2026"
 
 
+def test_periodo_no_campo_do_mes_e_entendido(toolbox):
+    # Visto com o qwen2.5:3b real: {"mes": "este_mes", "periodo": "ultimos_3_meses"}.
+    junto = toolbox.execute("gastos", {"mes": "este_mes", "periodo": "ultimos_3_meses"})
+    assert "erro" not in junto
+    assert junto["periodo"] == toolbox.execute("gastos", {"periodo": "ultimos_3_meses"})["periodo"]
+    sozinho = toolbox.execute("gastos", {"mes": "mes_passado"})
+    assert sozinho["periodo"] == "01/09/2026 a 30/09/2026"
+
+
 def test_resumo_financeiro(toolbox):
     result = toolbox.execute("resumo_financeiro", {"periodo": "este_mes"})
     assert result["receitas"] == "R$ 6.500,00"

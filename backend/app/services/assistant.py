@@ -182,6 +182,10 @@ class Toolbox:
         schema, handler = handlers[name]
         # Modelos pequenos às vezes mandam campos vazios ou "null" em vez de omitir.
         cleaned = {k: v for k, v in arguments.items() if v not in (None, "", "null", "None")}
+        # E às vezes põem um período no campo do mês ({"mes": "este_mes"}). Com o qwen2.5:3b, isso
+        # virava erro e o modelo desistia em vez de corrigir: o backend entende sozinho.
+        if cleaned.get("mes") in Period.__args__:
+            cleaned.setdefault("periodo", cleaned.pop("mes"))
         try:
             args = schema.model_validate(cleaned)
         except ValidationError as exc:

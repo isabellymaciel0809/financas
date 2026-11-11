@@ -45,7 +45,11 @@ export default function Assistant() {
       setTurns((t) => [...t, { role: "assistant", content: error.message, error: true }]),
   });
 
-  useEffect(() => bottom.current?.scrollIntoView({ behavior: "smooth" }), [turns, send.isPending]);
+  // Com chaves: o efeito não pode devolver nada além de uma função de limpeza. No Chromium novo,
+  // scrollIntoView devolve uma Promise, e o React tentava chamá-la ao atualizar (tela em branco).
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ behavior: "smooth" });
+  }, [turns, send.isPending]);
 
   const ask = (question: string) => {
     const text = question.trim();
