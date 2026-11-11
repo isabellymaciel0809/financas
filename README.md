@@ -256,8 +256,8 @@ tem dois conjuntos de transações rotuladas à mão, com casos difíceis de pro
 maquininhas, siglas, nomes de pessoas), e um script que roda o **mesmo pipeline do app** e mede
 cada etapa:
 
-- `dataset.csv` (**desenvolvimento**, 145 transações): usado para ajustar as regras e o prompt.
-- `teste.csv` (**teste**, 61 transações): nenhum estabelecimento em comum com o outro (um teste
+- `dataset.csv` (**desenvolvimento**, 153 transações): usado para ajustar as regras e o prompt.
+- `teste.csv` (**teste**, 67 transações): nenhum estabelecimento em comum com o outro (um teste
   garante isso) e **nunca** usado para ajustar nada. É ele que mede o que o app faz com
   transações novas.
 
@@ -270,16 +270,18 @@ python -m evals.run_eval --provider ollama --model qwen2.5:3b --dataset evals/te
 
 | Configuração | Acerto de ponta a ponta | Pendentes | LLM: acerto no que as regras não resolveram |
 |---|---|---|---|
-| Só regras | 69,0% | 45 | — |
+| Só regras (145 transações) | 69,0% | 45 | — |
 | Regras + `qwen2.5:3b`, prompt inicial | 73,8% | 27 | 15,6% |
-| Regras + `qwen2.5:3b`, prompt revisado | **88,3%** | **2** | **62,2%** |
+| Regras + `qwen2.5:3b`, prompt revisado | 88,3% | 2 | 62,2% |
+| Com "Cuidados pessoais" (153 transações) | **88,2%** | **4** | **61,7%** |
 
 No conjunto de **teste** (o número que vale para transações novas):
 
 | Configuração | Acerto de ponta a ponta | Regras: cobertura | LLM: acerto no que as regras não resolveram |
 |---|---|---|---|
-| Só regras | 49,2% | 49,2% | — |
-| Regras + `qwen2.5:3b` | **82,0%** | 49,2% | **64,5%** |
+| Só regras (61 transações) | 49,2% | 49,2% | — |
+| Regras + `qwen2.5:3b` | 82,0% | 49,2% | 64,5% |
+| Com "Cuidados pessoais" (67 transações) | **82,1%** | 49,3% | **64,7%** |
 
 As regras acertam 100% quando se aplicam nos dois conjuntos, mas cobrem bem menos transações
 novas (49% contra 69%): foram escritas olhando o conjunto de desenvolvimento. A LLM se sai igual
@@ -302,9 +304,16 @@ O que a avaliação mostrou:
    não notaram porque a avaliação com LLM não roda no CI. A correção foi dar a cada categoria
    um escopo (pessoal, empresa ou ambos) e o acerto voltou a 62,2%. Agora testes com um
    provedor falso, que rodam no CI, verificam que o extrato nunca recebe categorias de empresa.
+5. **Uma categoria nova, medida antes e depois.** Barbearia e salão caíam em "Lazer" ou
+   "Outros". Antes de criar "Cuidados pessoais", a avaliação foi rodada para ter a linha de
+   base; depois, os casos novos entraram nos dois conjuntos (lojas diferentes em cada um), e as
+   regras foram escritas só com termos genéricos e as lojas do conjunto de desenvolvimento. No
+   teste, os 61 casos antigos não pioraram (50 → 51 certos) e 4 dos 6 novos acertaram. Os
+   dois erros são marcas de cosméticos (Natura, Eudora) que a LLM pôs em *Saúde*; como estão
+   no conjunto de teste, ficaram sem ajuste.
 
 > **Limitação:** os dois conjuntos foram rotulados pela mesma pessoa, e o de teste ainda é
-> pequeno (61 transações): uma transação a mais ou a menos muda o acerto em 1,6 ponto.
+> pequeno (67 transações): uma transação a mais ou a menos muda o acerto em 1,5 ponto.
 
 ## Stack
 
@@ -453,7 +462,7 @@ frontend/src/
 - [x] Segundo conjunto rotulado, separado, só para teste (evita ajustar o prompt para a prova)
 - [ ] Aumentar o conjunto de teste e pedir a outra pessoa para rotular parte dele
 - [ ] Comparar modelos menores (`qwen2.5:1.5b`) e maiores com a mesma avaliação
-- [ ] Categoria "Cuidados pessoais" (barbearia, salão), hoje ausente e fonte de erro da LLM
+- [x] Categoria "Cuidados pessoais" (barbearia, salão), medida antes e depois
 - [x] Alertas de gastos fora do padrão no dashboard
 - [ ] Resumo mensal escrito pela IA, a partir dos alertas (com checagem de fatos)
 - [x] Lançamento por texto livre ("gastei 45 no mercado ontem")

@@ -1,10 +1,10 @@
 NUBANK_CSV = (
     "Data,Valor,Identificador,Descrição\n"
     "01/10/2026,-45.90,a,Compra no débito - IFD*IFOOD\n"
-    "02/10/2026,-30.00,b,Compra no débito - SumUp *BARBEARIA DO ZE\n"
+    "02/10/2026,-30.00,b,Compra no débito - SumUp *ATELIE DONA RITA\n"
     "03/10/2026,-120.00,c,Pix enviado - Maria Oliveira\n"
     "05/10/2026,6500.00,d,Transferência recebida - Salário ACME\n"
-    "10/09/2026,-50.00,e,Compra no débito - SumUp *BARBEARIA DO ZE\n"
+    "10/09/2026,-50.00,e,Compra no débito - SumUp *ATELIE DONA RITA\n"
 ).encode()
 
 
@@ -64,23 +64,23 @@ def test_arquivo_invalido_retorna_422(client):
 def test_correcao_aprende_e_aplica_em_semelhantes(client):
     _upload(client)
     pending = client.get("/api/transactions", params={"uncategorized": True}).json()
-    barbearia = next(t for t in pending["items"] if "BARBEARIA" in t["description"])
+    atelie = next(t for t in pending["items"] if "ATELIE" in t["description"])
     lazer = _category_id(client, "Lazer")
 
-    result = client.patch(f"/api/transactions/{barbearia['id']}", json={"category_id": lazer})
+    result = client.patch(f"/api/transactions/{atelie['id']}", json={"category_id": lazer})
     assert result.status_code == 200
     assert result.json()["transaction"]["categorized_by"] == "manual"
-    assert result.json()["similar_updated"] == 1  # a outra visita à barbearia
+    assert result.json()["similar_updated"] == 1  # a outra visita ao ateliê
 
     # Próxima importação do mesmo estabelecimento usa a memória, sem chamar regra/LLM.
-    new_csv = b"Data,Valor,Descricao\n01/11/2026,-35.00,SumUp *BARBEARIA DO ZE\n"
+    new_csv = b"Data,Valor,Descricao\n01/11/2026,-35.00,SumUp *ATELIE DONA RITA\n"
     imported = _upload(client, new_csv, "novembro.csv").json()
     assert imported["categorization"]["memory"] == 1
 
 
 def test_recategorizar_pendentes(client, fake_llm):
     _upload(client)  # a LLM falsa ainda não sabe responder nada: tudo fica pendente
-    fake_llm.answers = {"maria": ("Transferências", 0.9), "barbearia": ("Lazer", 0.9)}
+    fake_llm.answers = {"maria": ("Transferências", 0.9), "atelie": ("Lazer", 0.9)}
     response = client.post("/api/transactions/categorize")
     assert response.status_code == 202
     assert response.json() == {"queued": 3}

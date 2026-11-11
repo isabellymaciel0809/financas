@@ -2,24 +2,25 @@
   "meta": {
     "provider": "ollama",
     "model": "qwen2.5:3b",
-    "seconds": 257.25
+    "seconds": 354.26,
+    "dataset": "dataset.csv"
   },
   "summary": {
-    "total": 145,
-    "end_to_end_accuracy": 0.883,
-    "automation_rate": 0.986,
+    "total": 153,
+    "end_to_end_accuracy": 0.882,
+    "automation_rate": 0.974,
     "rules": {
-      "coverage": 0.69,
+      "coverage": 0.693,
       "accuracy": 1.0
     },
     "llm": {
-      "received": 45,
+      "received": 47,
       "answered": 43,
-      "accuracy_answered": 0.651,
-      "accuracy_on_leftovers": 0.622,
-      "accuracy_confident": 0.651,
-      "accuracy_unsure": null,
-      "unsure_count": 0
+      "accuracy_answered": 0.674,
+      "accuracy_on_leftovers": 0.617,
+      "accuracy_confident": 0.707,
+      "accuracy_unsure": 0.0,
+      "unsure_count": 2
     }
   },
   "predictions": [
@@ -261,7 +262,7 @@
       "expected": "Mercado",
       "predicted": "Mercado",
       "stage": "llm",
-      "confidence": 0.9
+      "confidence": 0.8
     },
     {
       "description": "UBER *TRIP",
@@ -357,7 +358,7 @@
       "expected": "Transporte",
       "predicted": "Mercado",
       "stage": "llm",
-      "confidence": 0.9
+      "confidence": 0.8
     },
     {
       "description": "CABIFY",
@@ -445,7 +446,7 @@
       "expected": "Contas e serviços",
       "predicted": "Mercado",
       "stage": "llm",
-      "confidence": 0.9
+      "confidence": 0.8
     },
     {
       "description": "COMGAS",
@@ -475,7 +476,7 @@
       "description": "OI FIBRA",
       "amount_cents": -9990,
       "expected": "Contas e serviços",
-      "predicted": "Assinaturas",
+      "predicted": "Contas e serviços",
       "stage": "llm",
       "confidence": 0.9
     },
@@ -643,9 +644,9 @@
       "description": "ESTANTE VIRTUAL",
       "amount_cents": -3500,
       "expected": "Educação",
-      "predicted": "Outros",
+      "predicted": "Cuidados pessoais",
       "stage": "llm",
-      "confidence": 0.9
+      "confidence": 1.0
     },
     {
       "description": "CINEMARK",
@@ -707,7 +708,7 @@
       "description": "EVENTIM BRASIL",
       "amount_cents": -38000,
       "expected": "Lazer",
-      "predicted": "Educação",
+      "predicted": "Viagem",
       "stage": "llm",
       "confidence": 1.0
     },
@@ -867,9 +868,9 @@
       "description": "CENTAURO",
       "amount_cents": -34990,
       "expected": "Compras",
-      "predicted": "Outros",
+      "predicted": "Compras",
       "stage": "llm",
-      "confidence": 0.9
+      "confidence": 1.0
     },
     {
       "description": "C&A MODAS",
@@ -899,9 +900,9 @@
       "description": "MERCADO PAGO *LOJADOJOAO",
       "amount_cents": -7500,
       "expected": "Compras",
-      "predicted": "Mercado",
-      "stage": "llm",
-      "confidence": 1.0
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
     },
     {
       "description": "LATAM AIRLINES",
@@ -1059,7 +1060,7 @@
       "description": "SAQUE BANCO24HORAS",
       "amount_cents": -20000,
       "expected": "Outros",
-      "predicted": "Outros",
+      "predicted": "Saúde",
       "stage": "llm",
       "confidence": 0.8
     },
@@ -1067,7 +1068,7 @@
       "description": "SAQUE CAIXA ELETRONICO",
       "amount_cents": -10000,
       "expected": "Outros",
-      "predicted": "Outros",
+      "predicted": "Saúde",
       "stage": "llm",
       "confidence": 0.8
     },
@@ -1107,9 +1108,9 @@
       "description": "Pix recebido - Cliente Projeto Freelance",
       "amount_cents": 120000,
       "expected": "Renda extra",
-      "predicted": "Renda extra",
-      "stage": "llm",
-      "confidence": 0.9
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
     },
     {
       "description": "Pix recebido - Venda OLX",
@@ -1117,7 +1118,7 @@
       "expected": "Renda extra",
       "predicted": "Renda extra",
       "stage": "llm",
-      "confidence": 0.95
+      "confidence": 1.0
     },
     {
       "description": "TED recebida - Consultoria Silva",
@@ -1125,7 +1126,7 @@
       "expected": "Renda extra",
       "predicted": "Renda extra",
       "stage": "llm",
-      "confidence": 0.95
+      "confidence": 1.0
     },
     {
       "description": "MERCADO LIVRE VENDA",
@@ -1133,7 +1134,7 @@
       "expected": "Renda extra",
       "predicted": "Compras",
       "stage": "llm",
-      "confidence": 0.95
+      "confidence": 1.0
     },
     {
       "description": "Rendimento CDB Nubank",
@@ -1171,17 +1172,81 @@
       "description": "Estorno - IFD*IFOOD",
       "amount_cents": 4590,
       "expected": "Alimentação",
-      "predicted": "Transferências",
+      "predicted": "Outros",
       "stage": "llm",
-      "confidence": 0.95
+      "confidence": 0.1
     },
     {
       "description": "Estorno - AMAZON MARKETPLACE",
       "amount_cents": 14990,
       "expected": "Compras",
-      "predicted": "Transferências",
+      "predicted": "Outros",
       "stage": "llm",
-      "confidence": 0.95
+      "confidence": 0.1
+    },
+    {
+      "description": "SumUp *BARBEARIA DO ZE",
+      "amount_cents": -5000,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "PAG*BarbeariaVintage",
+      "amount_cents": -4500,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "llm",
+      "confidence": 1.0
+    },
+    {
+      "description": "SALAO BELEZA PURA",
+      "amount_cents": -12000,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ESMALTERIA NACIONAL",
+      "amount_cents": -6500,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "O BOTICARIO",
+      "amount_cents": -8990,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SEPHORA BRASIL",
+      "amount_cents": -21000,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "MP*STUDIOSOBRANCELHAS",
+      "amount_cents": -4000,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "llm",
+      "confidence": 1.0
+    },
+    {
+      "description": "ESPACOLASER DEPILACAO",
+      "amount_cents": -15000,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
     }
   ]
 }

@@ -2,18 +2,19 @@
   "meta": {
     "provider": "none",
     "model": null,
-    "seconds": 0.37
+    "seconds": 0.15,
+    "dataset": "dataset.csv"
   },
   "summary": {
-    "total": 145,
-    "end_to_end_accuracy": 0.69,
-    "automation_rate": 0.69,
+    "total": 153,
+    "end_to_end_accuracy": 0.693,
+    "automation_rate": 0.693,
     "rules": {
-      "coverage": 0.69,
+      "coverage": 0.693,
       "accuracy": 1.0
     },
     "llm": {
-      "received": 45,
+      "received": 47,
       "answered": 0,
       "accuracy_answered": null,
       "accuracy_on_leftovers": 0.0,
@@ -1182,6 +1183,70 @@
       "predicted": null,
       "stage": "none",
       "confidence": null
+    },
+    {
+      "description": "SumUp *BARBEARIA DO ZE",
+      "amount_cents": -5000,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "PAG*BarbeariaVintage",
+      "amount_cents": -4500,
+      "expected": "Cuidados pessoais",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "SALAO BELEZA PURA",
+      "amount_cents": -12000,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "ESMALTERIA NACIONAL",
+      "amount_cents": -6500,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "O BOTICARIO",
+      "amount_cents": -8990,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SEPHORA BRASIL",
+      "amount_cents": -21000,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "MP*STUDIOSOBRANCELHAS",
+      "amount_cents": -4000,
+      "expected": "Cuidados pessoais",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "ESPACOLASER DEPILACAO",
+      "amount_cents": -15000,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
     }
   ]
 }

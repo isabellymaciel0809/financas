@@ -2,19 +2,19 @@
   "meta": {
     "provider": "none",
     "model": null,
-    "seconds": 0.04,
+    "seconds": 0.08,
     "dataset": "teste.csv"
   },
   "summary": {
-    "total": 61,
-    "end_to_end_accuracy": 0.492,
-    "automation_rate": 0.492,
+    "total": 67,
+    "end_to_end_accuracy": 0.493,
+    "automation_rate": 0.493,
     "rules": {
-      "coverage": 0.492,
+      "coverage": 0.493,
       "accuracy": 1.0
     },
     "llm": {
-      "received": 31,
+      "received": 34,
       "answered": 0,
       "accuracy_answered": null,
       "accuracy_on_leftovers": 0.0,
@@ -511,6 +511,54 @@
       "predicted": null,
       "stage": "none",
       "confidence": null
+    },
+    {
+      "description": "SumUp *BARBEARIA CAVALHEIRO",
+      "amount_cents": -5500,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SALAO STUDIO HAIR",
+      "amount_cents": -9000,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "NATURA COSMETICOS",
+      "amount_cents": -7550,
+      "expected": "Cuidados pessoais",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "EUDORA",
+      "amount_cents": -5990,
+      "expected": "Cuidados pessoais",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "PAG*ManicureDaAna",
+      "amount_cents": -3500,
+      "expected": "Cuidados pessoais",
+      "predicted": null,
+      "stage": "none",
+      "confidence": null
+    },
+    {
+      "description": "CLINICA ESTETICA BELLA",
+      "amount_cents": -18000,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
     }
   ]
 }

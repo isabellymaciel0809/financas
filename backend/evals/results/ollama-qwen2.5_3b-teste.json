@@ -2,23 +2,23 @@
   "meta": {
     "provider": "ollama",
     "model": "qwen2.5:3b",
-    "seconds": 168.76,
+    "seconds": 246.06,
     "dataset": "teste.csv"
   },
   "summary": {
-    "total": 61,
-    "end_to_end_accuracy": 0.82,
+    "total": 67,
+    "end_to_end_accuracy": 0.821,
     "automation_rate": 1.0,
     "rules": {
-      "coverage": 0.492,
+      "coverage": 0.493,
       "accuracy": 1.0
     },
     "llm": {
-      "received": 31,
-      "answered": 31,
-      "accuracy_answered": 0.645,
-      "accuracy_on_leftovers": 0.645,
-      "accuracy_confident": 0.645,
+      "received": 34,
+      "answered": 34,
+      "accuracy_answered": 0.647,
+      "accuracy_on_leftovers": 0.647,
+      "accuracy_confident": 0.647,
       "accuracy_unsure": null,
       "unsure_count": 0
     }
@@ -52,7 +52,7 @@
       "description": "MADERO CONTAINER",
       "amount_cents": -8970,
       "expected": "Alimentação",
-      "predicted": "Mercado",
+      "predicted": "Moradia",
       "stage": "llm",
       "confidence": 0.95
     },
@@ -108,7 +108,7 @@
       "description": "MERCADINHO DONA ROSA",
       "amount_cents": -5630,
       "expected": "Mercado",
-      "predicted": "Moradia",
+      "predicted": "Mercado",
       "stage": "llm",
       "confidence": 0.95
     },
@@ -156,7 +156,7 @@
       "description": "OFICINA MECANICA DO TONINHO",
       "amount_cents": -45000,
       "expected": "Transporte",
-      "predicted": "Saúde",
+      "predicted": "Contas e serviços",
       "stage": "llm",
       "confidence": 0.95
     },
@@ -164,7 +164,7 @@
       "description": "INDRIVER *VIAGEM",
       "amount_cents": -1980,
       "expected": "Transporte",
-      "predicted": "Compras",
+      "predicted": "Alimentação",
       "stage": "llm",
       "confidence": 0.95
     },
@@ -180,7 +180,7 @@
       "description": "LEROY MERLIN",
       "amount_cents": -23590,
       "expected": "Moradia",
-      "predicted": "Impostos e taxas",
+      "predicted": "Mercado",
       "stage": "llm",
       "confidence": 0.95
     },
@@ -511,6 +511,54 @@
       "predicted": "Outros",
       "stage": "llm",
       "confidence": 0.8
+    },
+    {
+      "description": "SumUp *BARBEARIA CAVALHEIRO",
+      "amount_cents": -5500,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "SALAO STUDIO HAIR",
+      "amount_cents": -9000,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
+    },
+    {
+      "description": "NATURA COSMETICOS",
+      "amount_cents": -7550,
+      "expected": "Cuidados pessoais",
+      "predicted": "Saúde",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "EUDORA",
+      "amount_cents": -5990,
+      "expected": "Cuidados pessoais",
+      "predicted": "Saúde",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "PAG*ManicureDaAna",
+      "amount_cents": -3500,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "llm",
+      "confidence": 0.95
+    },
+    {
+      "description": "CLINICA ESTETICA BELLA",
+      "amount_cents": -18000,
+      "expected": "Cuidados pessoais",
+      "predicted": "Cuidados pessoais",
+      "stage": "rule",
+      "confidence": 0.85
     }
   ]
 }

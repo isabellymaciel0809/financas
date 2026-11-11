@@ -26,6 +26,10 @@ from tests.conftest import FakeLLM
         ("MERCADO PAGO *LOJADOJOAO", -7500, None),  # intermediador não é supermercado
         ("MERCADO PAGO *ACADEMIA FORMA", -9900, "Saúde"),
         ("Salário devolvido", -1000, None),  # regra de receita não vale para saída
+        # Cuidados pessoais: antes, barbearia ia para a LLM, que chutava "Lazer" ou "Outros".
+        ("Compra no débito - SumUp *BARBEARIA DO ZE", -5000, "Cuidados pessoais"),
+        ("CLINICA DE ESTETICA AURORA", -18000, "Cuidados pessoais"),  # vence "clinica" (Saúde)
+        ("O BOTICARIO", -8990, "Cuidados pessoais"),
     ],
 )
 def test_regras(description, amount, expected):
@@ -56,11 +60,11 @@ def _category(db, name):
 
 def test_cascata_memoria_regra_llm(db):
     lazer = _category(db, "Lazer")
-    remember(db, merchant_key("BARBEARIA DO ZE"), lazer.id)
+    remember(db, merchant_key("ATELIE DONA RITA"), lazer.id)
     llm = FakeLLM({"maria": ("Transferências", 0.7)})
 
     txs = [
-        _tx(db, "SumUp *BARBEARIA DO ZE", -5000),  # memória
+        _tx(db, "SumUp *ATELIE DONA RITA", -5000),  # memória
         _tx(db, "IFD*IFOOD", -4000),  # regra
         _tx(db, "Pix enviado - Maria Oliveira", -10000),  # LLM
         _tx(db, "XPTO 123", -999),  # ninguém sabe
@@ -112,12 +116,12 @@ def test_lotes(db):
 
 
 def test_mesmo_estabelecimento_vai_uma_vez_so_para_a_llm(db):
-    llm = FakeLLM({"barbearia": ("Lazer", 0.7)})
-    txs = [_tx(db, "SumUp *BARBEARIA DO ZE", -4500 - i) for i in range(3)]
-    estorno = _tx(db, "SumUp *BARBEARIA DO ZE", 4500)  # sinal diferente: pergunta separada
+    llm = FakeLLM({"atelie": ("Lazer", 0.7)})
+    txs = [_tx(db, "SumUp *ATELIE DONA RITA", -4500 - i) for i in range(3)]
+    estorno = _tx(db, "SumUp *ATELIE DONA RITA", 4500)  # sinal diferente: pergunta separada
     result = categorize_transactions(db, [*txs, estorno], llm)
 
-    assert [i.description for i in llm.calls[0]] == ["SumUp *BARBEARIA DO ZE"] * 2
+    assert [i.description for i in llm.calls[0]] == ["SumUp *ATELIE DONA RITA"] * 2
     assert {i.amount_cents > 0 for i in llm.calls[0]} == {True, False}
     assert all(t.category.name == "Lazer" for t in txs)
     assert result.stats.llm == 4
@@ -151,7 +155,7 @@ def test_transacao_manual_nao_e_sobrescrita(db):
 # Estes testes rodam no CI, onde não há LLM, e impedem que a mistura volte.
 
 COMPANY_ONLY = {"Receita de vendas", "Receita de serviços", "Fretes e entregas"}
-PERSONAL_ONLY = {"Salário", "Renda extra", "Rendimentos"}
+PERSONAL_ONLY = {"Salário", "Renda extra", "Rendimentos", "Cuidados pessoais"}
 
 
 def test_llm_do_extrato_so_ve_categorias_pessoais(db):

@@ -15,6 +15,7 @@ DEFAULT_CATEGORIES: list[tuple[str, CategoryKind, str, str, CategoryScope]] = [
     ("Moradia", _EXP, "#8b5cf6", "🏠", _BOTH),
     ("Contas e serviços", _EXP, "#06b6d4", "💡", _BOTH),
     ("Saúde", _EXP, "#ef4444", "🩺", _BOTH),
+    ("Cuidados pessoais", _EXP, "#d946ef", "💇", _PERSONAL),
     ("Educação", _EXP, "#eab308", "📚", _BOTH),
     ("Lazer", _EXP, "#ec4899", "🎉", _BOTH),
     ("Assinaturas", _EXP, "#a855f7", "📺", _BOTH),
@@ -53,6 +54,9 @@ CATEGORY_DESCRIPTIONS: dict[str, str] = {
     "Moradia": "aluguel, condomínio, IPTU, reformas e manutenção da casa",
     "Contas e serviços": "energia elétrica, água, gás, internet, telefone e celular",
     "Saúde": "farmácias, planos de saúde, consultas, exames, laboratórios, dentista e academia",
+    "Cuidados pessoais": (
+        "barbearia, salão de beleza, manicure, estética, depilação, cosméticos e perfumaria"
+    ),
     "Educação": "escolas, faculdades, cursos, livros e plataformas de ensino",
     "Lazer": "cinema, shows, eventos, ingressos, jogos e passeios",
     "Assinaturas": "streaming de vídeo e música, aplicativos e serviços com cobrança mensal",
@@ -182,6 +186,24 @@ EXPENSE_RULES: dict[str, list[str]] = {
         "smart fit",
         "smartfit",
         "academia",
+    ],
+    # Termos genéricos e as lojas do conjunto de desenvolvimento. As marcas que só aparecem no
+    # conjunto de teste (evals/teste.csv) ficam de fora de propósito: ali, quem responde é a LLM.
+    "Cuidados pessoais": [
+        "barbearia",
+        "barber",
+        "salao",
+        "cabeleireiro",
+        "cabeleireira",
+        "manicure",
+        "esmalteria",
+        "estetica",
+        "depilacao",
+        "sobrancelha",
+        "sobrancelhas",
+        "boticario",
+        "sephora",
+        "espacolaser",
     ],
     "Educação": ["udemy", "alura", "coursera", "escola", "faculdade", "curso", "livraria"],
     "Lazer": ["cinema", "cinemark", "ingresso", "sympla", "show", "teatro", "steam", "playstation"],

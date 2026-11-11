@@ -1,17 +1,17 @@
 # Avaliação da categorização: ollama · `qwen2.5:3b`
 
-145 transações rotuladas · tempo total 257.25s
+Conjunto `dataset.csv` · 153 transações rotuladas · tempo total 354.26s
 
 | Métrica | Valor |
 |---|---|
-| Acerto de ponta a ponta | **88.3%** |
-| Taxa de automação (não ficou pendente) | 98.6% |
-| Regras: cobertura | 69.0% |
+| Acerto de ponta a ponta | **88.2%** |
+| Taxa de automação (não ficou pendente) | 97.4% |
+| Regras: cobertura | 69.3% |
 | Regras: acerto quando aplicadas | 100.0% |
-| LLM: transações recebidas | 45 |
-| LLM: acerto sobre o que as regras não resolveram | 62.2% |
-| LLM: acerto com confiança ≥ 60% | 65.1% |
-| LLM: acerto com confiança < 60% (0 casos) | — |
+| LLM: transações recebidas | 47 |
+| LLM: acerto sobre o que as regras não resolveram | 61.7% |
+| LLM: acerto com confiança ≥ 60% | 70.7% |
+| LLM: acerto com confiança < 60% (2 casos) | 0.0% |
 
 ## Erros
 
@@ -22,21 +22,20 @@
 | llm | Pagamento de boleto - IMOBILIARIA CENTRAL | Moradia | Contas e serviços |
 | llm | TIM S A | Contas e serviços | Mercado |
 | llm | LIGHT SERVICOS DE ELETRICIDADE | Contas e serviços | Moradia |
-| llm | OI FIBRA | Contas e serviços | Assinaturas |
 | llm | TOTALPASS | Saúde | Assinaturas |
-| llm | ESTANTE VIRTUAL | Educação | Outros |
-| llm | EVENTIM BRASIL | Lazer | Educação |
-| llm | CENTAURO | Compras | Outros |
-| llm | MERCADO PAGO *LOJADOJOAO | Compras | Mercado |
+| llm | ESTANTE VIRTUAL | Educação | Cuidados pessoais |
+| llm | EVENTIM BRASIL | Lazer | Viagem |
 | llm | BUSER | Viagem | Outros |
+| llm | SAQUE BANCO24HORAS | Outros | Saúde |
+| llm | SAQUE CAIXA ELETRONICO | Outros | Saúde |
 | llm | MERCADO LIVRE VENDA | Renda extra | Compras |
-| llm | Estorno - IFD*IFOOD | Alimentação | Transferências |
-| llm | Estorno - AMAZON MARKETPLACE | Compras | Transferências |
+| llm | Estorno - IFD*IFOOD | Alimentação | Outros |
+| llm | Estorno - AMAZON MARKETPLACE | Compras | Outros |
 
 ## Confusões mais comuns
 
+- Outros → Saúde: 2
 - Mercado → Alimentação: 1
 - Transporte → Mercado: 1
 - Moradia → Contas e serviços: 1
 - Contas e serviços → Mercado: 1
-- Contas e serviços → Moradia: 1
