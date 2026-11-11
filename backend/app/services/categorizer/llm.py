@@ -183,10 +183,15 @@ class OllamaProvider:
         if self._availability and now - self._availability[0] < self.AVAILABILITY_TTL_SECONDS:
             return self._availability[1]
         try:
-            response = self._http.get(f"{self.base_url}/api/tags", timeout=1.0)
+            response = self._http.get(f"{self.base_url}/api/tags", timeout=3.0)
             response.raise_for_status()
             names = {m.get("name", "") for m in response.json().get("models", [])}
             available = self.model in names or f"{self.model}:latest" in names
+        except httpx.ReadTimeout:
+            # Conectou, mas demorou a responder: o Ollama está no ar, só ocupado gerando uma
+            # resposta (numa CPU, isso trava a lista de modelos por segundos). Antes, isso o marcava
+            # como "offline" e o app recusava pedidos à LLM sem motivo. Mantém o último resultado.
+            available = self._availability[1] if self._availability else True
         except (httpx.HTTPError, ValueError):
             available = False
         self._availability = (now, available)
