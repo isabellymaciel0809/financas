@@ -43,4 +43,19 @@ jobs:
     needs: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t financas-ia .
+      # Sobe o app de verdade (com PostgreSQL) em vez de só gerar a imagem: as migrações e a
+      # gravação de uploads no volume só falham rodando. Sem Ollama no CI: o app segue sem LLM.
+      - run: docker compose up -d --build --wait
+      - name: Smoke test (criar conta, enviar nota)
+        run: |
+          set -e
+          curl -fsS http://localhost:8000/api/health
+          curl -fsS -c cookies.txt -H "Content-Type: application/json" \
+            -d '{"username": "ci", "password": "senha-do-ci"}' http://localhost:8000/api/auth/setup
+          echo '<nfeProc/>' > nota.xml
+          code=$(curl -sS -o resposta.json -w "%{http_code}" -b cookies.txt \
+            -F "files=@nota.xml" http://localhost:8000/api/expenses/upload)
+          cat resposta.json
+          test "$code" = 202
+      - if: failure()
+        run: docker compose logs app

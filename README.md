@@ -275,12 +275,31 @@ migrações de banco com Alembic (aplicadas ao iniciar; bancos antigos são reco
 
 ### Opção 1: Docker (mais simples)
 
+Pré-requisito: [Docker Desktop](https://www.docker.com/products/docker-desktop/) (ou Docker + Compose no Linux).
+
 ```bash
-docker compose up --build                    # app + PostgreSQL, categorização por memória e regras
-docker compose --profile ollama up --build   # + LLM local (baixa ~2 GB na primeira vez)
+docker compose up --build -d
 ```
 
-Acesse http://localhost:8000. A documentação interativa da API fica em http://localhost:8000/docs.
+Acesse http://localhost:8000 e crie a primeira conta. A documentação interativa da API fica em
+http://localhost:8000/docs.
+
+- Sobem dois containers: o **app** (API e frontend juntos) e o **PostgreSQL**. Os dados ficam em
+  volumes (`pgdata` e `uploads`) e sobrevivem a `docker compose down` e a atualizações. Só
+  `docker compose down -v` apaga os dados.
+- **IA:** se o [Ollama](https://ollama.com/download) estiver instalado no computador, o app usa
+  ele. Sem Ollama, a categorização segue com memória e regras. Para rodar o Ollama também dentro
+  do Docker (baixa ~2 GB na primeira vez), crie um arquivo `.env` na raiz com
+  `OLLAMA_BASE_URL=http://ollama:11434` e rode `docker compose --profile ollama up --build -d`.
+  Isso exige memória: no Windows, o Docker roda numa máquina virtual com metade da RAM. Num
+  notebook com 8 GB, só carregar o `qwen2.5:3b` levou **7 minutos dentro do Docker contra 14 s**
+  no Ollama instalado direto no Windows, e a categorização passou do tempo limite. Por isso o
+  padrão é usar o Ollama do computador; o Ollama no Docker vale para máquinas com 16 GB ou mais
+  e para servidores Linux.
+- **Reinício automático:** se o app cair, o Docker o reinicia, e as notas e transações que estavam
+  na fila continuam de onde pararam.
+- O app roda com um usuário sem privilégios dentro do container, e o banco não expõe porta para
+  fora. Para trocar a senha do banco, defina `POSTGRES_PASSWORD` no `.env` antes do primeiro início.
 
 ### Opção 2: desenvolvimento
 
@@ -328,7 +347,9 @@ pytest          # 134 testes: notas e cupons, planilha, itens, login, isolamento
 ruff check .
 ```
 
-O CI roda lint, testes, o build do frontend e o build da imagem Docker a cada push.
+O CI roda lint, testes e o build do frontend a cada push, e depois **sobe o app no Docker**
+com PostgreSQL e faz um teste de fumaça: cria uma conta e envia uma nota. Foi esse teste que
+faltou para pegar um erro de permissão na pasta de uploads, que só aparecia com o container rodando.
 
 ## Estrutura
 

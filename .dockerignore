@@ -1,8 +1,18 @@
 **/node_modules
 **/.venv
 **/__pycache__
-**/*.db
+**/.pytest_cache
+**/.ruff_cache
 **/.env
 frontend/dist
 backend/static
 .git
+
+# Dados reais nunca entram no contexto do build (nem só de passagem):
+# banco e backups, documentos fiscais enviados e planilhas da empresa.
+**/*.db
+backend/data
+exemplos/cupons
+**/*.xlsx
+**/*.xlsm
+**/*.xls

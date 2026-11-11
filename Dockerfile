@@ -27,8 +27,13 @@ COPY backend/alembic.ini ./alembic.ini
 COPY backend/migrations ./migrations
 COPY --from=frontend /frontend/dist ./static
 
-RUN useradd --create-home appuser && mkdir /data && chown appuser /data
+# /data/uploads precisa existir na imagem já com o dono certo: um volume novo montado ali copia
+# essa permissão. Sem isso, o Docker cria a pasta como root e o envio de notas falha.
+RUN useradd --create-home appuser && mkdir -p /data/uploads && chown -R appuser /data
 USER appuser
 
 EXPOSE 8000
+# A imagem slim não tem curl: o próprio Python confere se a API responde.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=8)"
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

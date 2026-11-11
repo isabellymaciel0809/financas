@@ -1,17 +1,28 @@
 # Uso:
-#   docker compose up --build                     -> app + PostgreSQL (categorização por memória e regras)
-#   docker compose --profile ollama up --build    -> + LLM local gratuita (baixa ~2 GB na primeira vez)
+#   docker compose up --build
+#       app + PostgreSQL. A IA é o Ollama já instalado no computador (fora do Docker), se houver;
+#       sem ele, a categorização usa memória e regras.
+#   docker compose --profile ollama up --build
+#       + Ollama dentro do Docker (baixa ~2 GB na primeira vez). Neste caso, crie um arquivo .env
+#       ao lado deste com: OLLAMA_BASE_URL=http://ollama:11434
+#       Precisa de memória: com 8 GB de RAM no Windows, ficou lento demais (veja o README).
+name: financas-ia
+
 services:
   app:
     build: .
+    restart: unless-stopped # volta sozinho se cair; a fila continua de onde parou
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+psycopg://financas:financas@db:5432/financas
+      DATABASE_URL: postgresql+psycopg://financas:${POSTGRES_PASSWORD:-financas}@db:5432/financas
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
-      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # no Linux; o Docker Desktop já resolve sozinho
     volumes:
       - uploads:/data/uploads # fotos e XMLs enviados
     depends_on:
@@ -20,9 +31,10 @@ services:
 
   db:
     image: postgres:17-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: financas
-      POSTGRES_PASSWORD: financas
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-financas} # sem porta exposta: só o app acessa
       POSTGRES_DB: financas
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -33,20 +45,27 @@ services:
       retries: 20
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.16
     profiles: ["ollama"]
+    restart: unless-stopped
     volumes:
       - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
 
   # Baixa o modelo uma vez e encerra.
   ollama-pull:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.16
     profiles: ["ollama"]
     environment:
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["sh", "-c", "sleep 3 && ollama pull ${OLLAMA_MODEL:-qwen2.5:3b}"]
+    entrypoint: ["ollama", "pull", "${OLLAMA_MODEL:-qwen2.5:3b}"]
     depends_on:
-      - ollama
+      ollama:
+        condition: service_healthy
     restart: "no"
 
 volumes:
