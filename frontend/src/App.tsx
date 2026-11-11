@@ -74,7 +74,7 @@ function Shell({ username }: { username: string }) {
   const logout = async () => {
     await authApi.logout().catch(() => undefined);
     queryClient.clear(); // nada do usuário anterior fica em memória
-    queryClient.setQueryData(["auth"], { setup_required: false, username: null });
+    queryClient.setQueryData(["auth"], { setup_required: false, username: null, is_admin: false });
   };
 
   const notify: Notify = useCallback((message, tone = "success") => setToast({ message, tone }), []);

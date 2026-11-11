@@ -69,10 +69,16 @@ separação existe porque misturar as listas derrubou o acerto da IA (veja
 - Usuário e senha em todas as rotas de dados. Senhas com **scrypt** e sal; a sessão é um cookie
   `HttpOnly` e `SameSite=Lax`, e o banco guarda só o hash do token.
 - **Primeiro acesso**: sem nenhum usuário, a tela pede para criar a conta, e o que já estava no
-  sistema fica com ela. Depois, outras pessoas são cadastradas em **Minha conta** e começam vazias.
+  sistema fica com ela. Essa primeira conta **administra o sistema**: só ela cadastra outras
+  pessoas, em **Minha conta**, e elas começam com o organizador vazio.
+- **Limite de tentativas**: 5 senhas erradas em 15 minutos bloqueiam aquele usuário, e 30 erros
+  bloqueiam o IP (quem testa muitos usuários). O bloqueio vale também para o Power BI e para
+  usuários que não existem, para não revelar quem existe. O limite por IP é alto de propósito: no
+  Docker, todas as pessoas chegam ao app com o mesmo IP.
 - **Power BI** entra com login *Básico* (o mesmo usuário e senha), já que não guarda cookie.
 - Trocar a senha encerra as sessões abertas em outros aparelhos. Esqueceu a senha?
-  `python scripts/usuario.py NOME` (dentro de `backend/`) cria o usuário ou troca a senha.
+  `python scripts/usuario.py NOME` (dentro de `backend/`) cria o usuário ou troca a senha;
+  com `--admin`, também dá acesso de administração.
 
 ### Finanças a partir do extrato bancário
 - **Importação de extratos** do Nubank (conta e cartão), Banco Inter, CSVs genéricos e **OFX**,
@@ -343,7 +349,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 134 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest          # 142 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
 ruff check .
 ```
 
@@ -401,4 +407,5 @@ frontend/src/
 - [ ] Métricas de acerto da IA em produção, a partir das correções do usuário
 - [x] Login com múltiplos usuários, cada um com os próprios dados
 - [ ] Compartilhar um organizador entre pessoas (ex.: sócios da mesma empresa)
-- [ ] Limite de tentativas de login (hoje o scrypt só encarece a força bruta)
+- [x] Limite de tentativas de login e conta administradora
+- [ ] Guardar as tentativas de login no banco ou no Redis, para valer com vários processos do servidor

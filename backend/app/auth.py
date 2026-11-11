@@ -11,6 +11,7 @@ import base64
 import binascii
 import hashlib
 import hmac
+import math
 import secrets
 from datetime import datetime, timedelta
 
@@ -20,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
+from app.login_limit import login_limiter
 from app.models import User, UserSession
 from app.tenancy import bind_user
 
@@ -61,7 +63,32 @@ def authenticate(db: Session, username: str, password: str) -> User | None:
     return user if verify_password(password, user.password_hash) else None
 
 
-def create_user(db: Session, username: str, password: str) -> User:
+def client_ip(request: Request) -> str:
+    return request.client.host if request.client else "desconhecido"
+
+
+def authenticate_limited(
+    db: Session, request: Request, username: str, password: str
+) -> User | None:
+    """`authenticate` com limite de tentativas (login da tela e HTTP Basic do Power BI)."""
+    ip = client_ip(request)
+    wait = login_limiter.retry_after(username, ip)
+    if wait:
+        minutes = math.ceil(wait / 60)
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Muitas tentativas com senha errada. Tente de novo em {minutes} minuto(s).",
+            headers={"Retry-After": str(wait)},
+        )
+    user = authenticate(db, username, password)
+    if user is None:
+        login_limiter.failed(username, ip)
+    else:
+        login_limiter.succeeded(username)
+    return user
+
+
+def create_user(db: Session, username: str, password: str, is_admin: bool = False) -> User:
     name = username.strip().casefold()
     if not name:
         raise ValueError("Informe o usuário.")
@@ -69,7 +96,7 @@ def create_user(db: Session, username: str, password: str) -> User:
         raise ValueError(f"A senha precisa ter pelo menos {MIN_PASSWORD} caracteres.")
     if db.scalar(select(User).where(User.username == name)):
         raise ValueError("Já existe um usuário com esse nome.")
-    user = User(username=name, password_hash=hash_password(password))
+    user = User(username=name, password_hash=hash_password(password), is_admin=is_admin)
     db.add(user)
     db.flush()
     return user
@@ -139,7 +166,7 @@ def _from_basic_auth(db: Session, request: Request) -> User | None:
         username, _, password = base64.b64decode(encoded).decode().partition(":")
     except (binascii.Error, UnicodeDecodeError):
         return None
-    return authenticate(db, username, password)
+    return authenticate_limited(db, request, username, password)
 
 
 def require_user(request: Request, db: Session = Depends(get_db)) -> User:

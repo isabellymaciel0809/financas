@@ -125,6 +125,7 @@ function json(method: string, body: unknown): RequestInit {
 export interface AuthStatus {
   setup_required: boolean;
   username: string | null;
+  is_admin: boolean;
 }
 
 export const authApi = {

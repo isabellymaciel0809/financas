@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.auth import (
-    authenticate,
+    authenticate_limited,
     close_session,
     create_user,
     has_users,
@@ -32,6 +32,11 @@ class PasswordChange(BaseModel):
 class AuthStatus(BaseModel):
     setup_required: bool  # nenhum usuário ainda: a tela mostra "criar conta"
     username: str | None = None
+    is_admin: bool = False  # só quem administra vê o cadastro de pessoas em "Minha conta"
+
+
+def _status(user: User) -> AuthStatus:
+    return AuthStatus(setup_required=False, username=user.username, is_admin=user.is_admin)
 
 
 @router.get("/status", response_model=AuthStatus)
@@ -43,31 +48,33 @@ def auth_status(request: Request, db: Session = Depends(get_db)):
         user = require_user(request, db)
     except HTTPException:
         return AuthStatus(setup_required=False)
-    return AuthStatus(setup_required=False, username=user.username)
+    return _status(user)
 
 
 @router.post("/setup", response_model=AuthStatus, status_code=status.HTTP_201_CREATED)
 def setup(payload: Credentials, response: Response, db: Session = Depends(get_db)):
-    """Cria o primeiro usuário. Depois disso, novos usuários só por quem já entrou."""
+    """Cria o primeiro usuário, que administra o sistema. Depois, só ele cadastra pessoas."""
     if has_users(db):
         raise HTTPException(status.HTTP_409_CONFLICT, "O sistema já tem usuário. Faça login.")
     try:
-        user = create_user(db, payload.username, payload.password)
+        user = create_user(db, payload.username, payload.password, is_admin=True)
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     # O que foi usado/importado antes de existir login passa a ser desta primeira conta.
     claim_unowned_data(db, user.id)
     open_session(db, user, response)
-    return AuthStatus(setup_required=False, username=user.username)
+    return _status(user)
 
 
 @router.post("/login", response_model=AuthStatus)
-def login(payload: Credentials, response: Response, db: Session = Depends(get_db)):
-    user = authenticate(db, payload.username, payload.password)
+def login(
+    payload: Credentials, request: Request, response: Response, db: Session = Depends(get_db)
+):
+    user = authenticate_limited(db, request, payload.username, payload.password)
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuário ou senha incorretos.")
     open_session(db, user, response)
-    return AuthStatus(setup_required=False, username=user.username)
+    return _status(user)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -76,8 +83,12 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
 
 
 @router.post("/users", response_model=AuthStatus, status_code=status.HTTP_201_CREATED)
-def add_user(payload: Credentials, db: Session = Depends(get_db), _: User = Depends(require_user)):
+def add_user(payload: Credentials, db: Session = Depends(get_db), me: User = Depends(require_user)):
     """Cadastra outra pessoa. Ela começa com o organizador vazio: os dados são de cada um."""
+    if not me.is_admin:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Só quem administra o sistema cadastra outras pessoas."
+        )
     try:
         user = create_user(db, payload.username, payload.password)
     except ValueError as exc:

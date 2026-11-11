@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { KeyRound, UserPlus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import type { Notify } from "../App";
@@ -7,12 +7,23 @@ import { Button, Card } from "../components/ui";
 
 const field = "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none";
 
-/** Trocar a própria senha e cadastrar outras pessoas da equipe. */
+/** Trocar a própria senha e, para quem administra, cadastrar outras pessoas da equipe. */
 export default function Account({ notify }: { notify: Notify }) {
+  // Mesma consulta do AuthGate: já está em cache, não faz outra requisição.
+  const auth = useQuery({ queryKey: ["auth"], queryFn: authApi.status });
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <ChangePassword notify={notify} />
-      <AddUser notify={notify} />
+      {auth.data?.is_admin ? (
+        <AddUser notify={notify} />
+      ) : (
+        <Card title="Outras pessoas">
+          <p className="text-sm text-slate-500">
+            Quem administra o sistema cadastra as outras pessoas. Cada uma tem o próprio organizador, e ninguém vê os
+            dados de ninguém.
+          </p>
+        </Card>
+      )}
     </div>
   );
 }

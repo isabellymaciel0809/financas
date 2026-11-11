@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.auth import require_user  # noqa: E402
 from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.deps import get_llm_provider  # noqa: E402
+from app.login_limit import login_limiter  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
 from app.services.categorizer.llm import (  # noqa: E402
@@ -91,6 +92,14 @@ def db():
     session.close()
 
 
+@pytest.fixture(autouse=True)
+def _limite_de_login_zerado():
+    """O limite de tentativas fica em memória: cada teste começa sem erros contados."""
+    login_limiter.reset()
+    yield
+    login_limiter.reset()
+
+
 @pytest.fixture
 def fake_llm():
     return FakeLLM()
@@ -100,7 +109,7 @@ def fake_llm():
 def client(db, fake_llm):
     """Cliente já logado: os testes de funcionalidade não precisam repetir o login."""
     app.dependency_overrides[get_llm_provider] = lambda: fake_llm
-    app.dependency_overrides[require_user] = lambda: User(id=0, username="teste")
+    app.dependency_overrides[require_user] = lambda: User(id=0, username="teste", is_admin=True)
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

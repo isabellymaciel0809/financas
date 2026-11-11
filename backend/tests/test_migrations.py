@@ -64,3 +64,22 @@ def test_banco_existente_recebe_o_escopo_das_categorias(tmp_path):
         "Mercado": "both",
         "Minha categoria": "both",  # criada pelo usuário: continua valendo nos dois
     }
+
+
+def test_banco_existente_tem_a_primeira_conta_como_administradora(tmp_path):
+    engine = _engine(tmp_path, "usuarios.db")
+    config = alembic_config()
+    with engine.begin() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, "0007")
+        for name in ("isabelly", "ana"):
+            connection.exec_driver_sql(
+                "INSERT INTO users (username, password_hash) VALUES (?, 'x')", (name,)
+            )
+
+    run_migrations(engine)
+
+    with engine.connect() as connection:
+        admins = dict(connection.exec_driver_sql("SELECT username, is_admin FROM users").all())
+    assert admins == {"isabelly": 1, "ana": 0}
+    assert _diff(engine) == []
