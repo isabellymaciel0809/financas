@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Sparkles, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, TrendingUp, Upload } from "lucide-react";
 import { useState } from "react";
 import {
   Bar,
@@ -12,7 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import type { Notify, OnQueued, Page } from "../App";
-import { api, type CategorizationStats } from "../api";
+import { api, type CategorizationStats, type SpendingAlert } from "../api";
 import { Button, Card } from "../components/ui";
 import { formatMoney, formatMonthLong, formatMonthShort, shiftMonth } from "../format";
 
@@ -131,6 +131,8 @@ export default function Dashboard({ onNavigate, notify, onQueued }: {
         />
       </div>
 
+      {data.alerts.length > 0 && <Alerts alerts={data.alerts} />}
+
       <div className="grid gap-6 lg:grid-cols-5">
         <Card title="Despesas por categoria" className="lg:col-span-2">
           {ranked.length === 0 ? (
@@ -201,6 +203,38 @@ export default function Dashboard({ onNavigate, notify, onQueued }: {
         </p>
       </Card>
     </div>
+  );
+}
+
+/** Categorias em que o mês passou muito da média dos meses anteriores. */
+function Alerts({ alerts }: { alerts: SpendingAlert[] }) {
+  return (
+    <section
+      aria-label="Gastos fora do padrão"
+      className="rounded-2xl border border-amber-200 bg-amber-50 p-4"
+    >
+      <h2 className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+        <TrendingUp size={16} /> Fora do padrão neste mês
+      </h2>
+      <ul className="mt-2 space-y-1.5 text-sm text-amber-950">
+        {alerts.map((a) => {
+          const months = a.baseline_months === 1 ? "no mês anterior" : `nos ${a.baseline_months} meses anteriores`;
+          return (
+            <li key={a.category_id}>
+              {a.icon} <strong>{a.name}</strong>: {formatMoney(a.current_cents)}
+              {a.baseline_cents > 0 ? (
+                <>
+                  , <strong>{Math.round((a.current_cents / a.baseline_cents - 1) * 100)}% acima</strong> da média{" "}
+                  {months} ({formatMoney(a.baseline_cents)})
+                </>
+              ) : (
+                <>, sem nenhum gasto nessa categoria {months}</>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

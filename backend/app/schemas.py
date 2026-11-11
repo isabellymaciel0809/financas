@@ -96,6 +96,18 @@ class MonthTotal(BaseModel):
     expense_cents: int
 
 
+class SpendingAlert(BaseModel):
+    """Categoria com gasto fora do padrão no mês (veja app/services/insights.py)."""
+
+    category_id: int
+    name: str
+    color: str
+    icon: str
+    current_cents: int
+    baseline_cents: int  # média dos meses anteriores; 0 = categoria sem gasto antes
+    baseline_months: int
+
+
 class DashboardSummary(BaseModel):
     month: str
     income_cents: int
@@ -105,6 +117,7 @@ class DashboardSummary(BaseModel):
     expenses_by_category: list[CategoryTotal]
     monthly: list[MonthTotal]
     categorized_by: CategorizationStats
+    alerts: list[SpendingAlert] = []
 
 
 class HealthOut(BaseModel):

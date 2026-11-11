@@ -94,6 +94,11 @@ separação existe porque misturar as listas derrubou o acerto da IA (veja
   interface mostra quais consultas foram feitas.
 - **Dashboard** com receitas, despesas, saldo, gastos por categoria, evolução mensal e a taxa de
   automação da categorização.
+- **Gastos fora do padrão**: o dashboard avisa quando uma categoria passa muito da média dos
+  meses anteriores ("Compras: R$ 1.426,47, 823% acima da média"). É uma regra fixa, sem LLM:
+  50% acima da média **e** pelo menos R$ 50 a mais (para R$ 12 contra R$ 8 não virar alerta),
+  e a média conta só os meses em que houve movimento, então quem começou a usar o app no mês
+  passado não tem meses vazios contados como "gastou zero".
 - **Dados de exemplo** com um clique, para conhecer o app sem precisar do seu extrato.
 
 ## Leitura de notas e cupons
@@ -349,7 +354,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 142 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest          # 153 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
 ruff check .
 ```
 
@@ -402,7 +407,8 @@ frontend/src/
 - [ ] Aumentar o conjunto de teste e pedir a outra pessoa para rotular parte dele
 - [ ] Comparar modelos menores (`qwen2.5:1.5b`) e maiores com a mesma avaliação
 - [ ] Categoria "Cuidados pessoais" (barbearia, salão), hoje ausente e fonte de erro da LLM
-- [ ] Resumo mensal gerado pela IA, com alertas de gastos fora do padrão
+- [x] Alertas de gastos fora do padrão no dashboard
+- [ ] Resumo mensal escrito pela IA, a partir dos alertas (com checagem de fatos)
 - [ ] Lançamento por texto livre ("gastei 45 no mercado ontem")
 - [ ] Métricas de acerto da IA em produção, a partir das correções do usuário
 - [x] Login com múltiplos usuários, cada um com os próprios dados

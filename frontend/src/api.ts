@@ -53,6 +53,17 @@ export interface CategorizationJobStatus {
   last_error: string | null;
 }
 
+/** Categoria com gasto fora do padrão: calculada no backend (app/services/insights.py). */
+export interface SpendingAlert {
+  category_id: number;
+  name: string;
+  color: string;
+  icon: string;
+  current_cents: number;
+  baseline_cents: number; // média dos meses anteriores; 0 = sem gasto antes
+  baseline_months: number;
+}
+
 export interface DashboardSummary {
   month: string;
   income_cents: number;
@@ -68,6 +79,7 @@ export interface DashboardSummary {
   }[];
   monthly: { month: string; income_cents: number; expense_cents: number }[];
   categorized_by: CategorizationStats;
+  alerts: SpendingAlert[];
 }
 
 export interface Health {

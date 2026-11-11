@@ -48,6 +48,9 @@ EXTRA = [
     ("Compra no débito - LATAM AIRLINES", -890.50),
 ]
 
+# Uma compra grande no mês atual, para o dashboard mostrar um alerta de gasto fora do padrão.
+CURRENT_EXTRA = ("Compra no débito - AMAZON MARKETPLACE", -1299.00)
+
 
 def build_demo_csv(today: date | None = None, seed: int = 42) -> bytes:
     today = today or date.today()
@@ -76,6 +79,9 @@ def build_demo_csv(today: date | None = None, seed: int = 42) -> bytes:
     for desc, value in EXTRA:
         d = months[1].replace(day=rng.randint(1, 28))
         rows.append((d, desc, value))
+
+    desc, value = CURRENT_EXTRA
+    rows.append((today.replace(day=max(1, today.day - 2)), desc, value))
 
     rows.sort(key=lambda r: r[0])
     buffer = io.StringIO()

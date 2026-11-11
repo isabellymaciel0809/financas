@@ -12,7 +12,9 @@ from app.schemas import (
     CategoryTotal,
     DashboardSummary,
     MonthTotal,
+    SpendingAlert,
 )
+from app.services.insights import spending_alerts
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -98,4 +100,17 @@ def summary(
             MonthTotal(month=m, income_cents=i, expense_cents=e) for m, (i, e) in buckets.items()
         ],
         categorized_by=stats,
+        alerts=[
+            SpendingAlert(
+                category_id=a.category_id,
+                name=categories[a.category_id].name,
+                color=categories[a.category_id].color,
+                icon=categories[a.category_id].icon,
+                current_cents=a.current_cents,
+                baseline_cents=a.baseline_cents,
+                baseline_months=a.baseline_months,
+            )
+            for a in spending_alerts(db, start, end)
+            if a.category_id in categories
+        ],
     )
