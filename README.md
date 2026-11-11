@@ -18,7 +18,7 @@ Gastos do dia a dia (Alimentação, Transporte, Contas e serviços...) valem nas
 separação existe porque misturar as listas derrubou o acerto da IA (veja
 [Avaliação da IA](#avaliação-da-ia)).
 
-![CI](https://github.com/SEU-USUARIO/financas-ia/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/isabellymaciel0809/financas-ia/actions/workflows/ci.yml/badge.svg)
 
 <!-- Adicione aqui um GIF ou print: docs/demo.gif -->
 
