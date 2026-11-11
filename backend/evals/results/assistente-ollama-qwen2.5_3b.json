@@ -1,0 +1,247 @@
+{
+  "summary": {
+    "total": 12,
+    "acerto": 0.75,
+    "consulta_certa": 0.833,
+    "valor_na_resposta": 0.833,
+    "sem_valor_inventado": 0.917,
+    "sem_frase_proibida": 0.917,
+    "segundos_por_pergunta": 53.1
+  },
+  "results": [
+    {
+      "pergunta": "Quanto gastei este mês?",
+      "resposta": "No mês de novembro de 2026, você gastou um total de R$ 3.847,55. As maiores despesas foram:\n\n- R$ 1.800,00 em Moradia, no dia 06/11/2026.\n- R$ 1.299,00 em Compras, no dia 09/11/2026.\n- R$ 214,95 em Transporte, no dia 03/11/2026.\n- R$ 142,37 em Contas e serviços, no dia 08/11/2026.\n- R$ 127,47 em Compras, no dia 07/11/2026.",
+      "esperado": "R$ 3.847,55",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "periodo": "este_mes"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 169.7,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto gastei com Uber nos últimos 3 meses?",
+      "resposta": "No último mês, você gastou R$ 208,84 no Uber. As maiores despesas foram em 26/10/2026, 03/09/2026, 25/10/2026, 05/11/2026 e 25/09/2026.",
+      "esperado": "R$ 208,84",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "periodo": "ultimos_3_meses",
+            "estabelecimento": "uber"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": false,
+      "segundos": 56.3,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto gastei com alimentação no mês passado?",
+      "resposta": "No mês passado, você gastou R$ 152,49 em alimentação. As maiores despesas foram em 15/10/2026 e 18/10/2026.",
+      "esperado": "R$ 152,49",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "mes": "2026-10",
+            "periodo": "mes_passado",
+            "categoria": "Alimentação"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 45.3,
+      "erro": null
+    },
+    {
+      "pergunta": "Quais foram meus 5 maiores gastos este mês?",
+      "resposta": "Meus 5 maiores gastos deste mês foram:\n\n1. R$ 1.800,00 em Moradia (Pagamento de boleto - Aluguel Imobiliária Lar)\n2. R$ 1.299,00 em Compras (Compra no débito - AMAZON MARKETPLACE)\n3. R$ 214,95 em Transporte (Compra no débito - POSTO SHELL)\n4. R$ 142,37 em Contas e serviços (Débito automático - ENEL Distribuição SP)\n5. R$ 127,47 em Compras (Compra no débito - AMAZON MARKETPLACE)",
+      "esperado": "R$ 1.800,00",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "mes": "2026-11",
+            "limite": 5
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 90.4,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto sobrou de dinheiro no mês passado?",
+      "resposta": "No mês passado, você sobrou com R$ 3.181,77. Seus principais gastos foram no Salário e no rendimentos.",
+      "esperado": "R$ 3.181,77",
+      "consultas": [
+        {
+          "ferramenta": "resumo_financeiro",
+          "argumentos": {
+            "mes": "2026-10",
+            "periodo": "mes_passado"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 30.6,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto eu recebi este mês?",
+      "resposta": "Este mês você recebeu R$ 6.500,00. Você sobrou dinheiro com R$ 2.652,45 restantes no saldo.",
+      "esperado": "R$ 6.500,00",
+      "consultas": [
+        {
+          "ferramenta": "resumo_financeiro",
+          "argumentos": {
+            "mes": "2026-11",
+            "periodo": "este_mes"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 25.1,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto gastei no mercado em setembro?",
+      "resposta": "No mercado, gastei R$ 396,25 em setembro. As maiores despesas foram: R$ 288,82 no dia 09/09/2026 e R$ 107,43 no dia 27/09/2026.",
+      "esperado": "R$ 396,25",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "periodo": "este_mes",
+            "mes": "2026-09",
+            "categoria": "Mercado"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 40.5,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto paguei de Netflix nos últimos 3 meses?",
+      "resposta": "Não foram encontrados gastos relacionados à Netflix nos últimos 3 meses.",
+      "esperado": "R$ 134,70",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "periodo": "ultimos_3_meses",
+            "categoria": "Netflix",
+            "mes": "2026-10"
+          }
+        }
+      ],
+      "consulta_ok": false,
+      "valor_ok": false,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 25.8,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto gastei com transporte este mês?",
+      "resposta": "No mês de novembro de 2026, gastei R$ 274,28 no transporte. As maiores despesas foram em 03/11/2026 e 05/11/2026.",
+      "esperado": "R$ 274,28",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "mes": "este_mes",
+            "categoria": "Transporte"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 38.5,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto gastei no iFood no mês passado?",
+      "resposta": "No iFood no mês passado, você gastou R$ 123,59 em Alimentação. As maiores despesas foram em 15/10/2026 e 18/10/2026.",
+      "esperado": "R$ 123,59",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "mes": "2026-10",
+            "estabelecimento": "iFood",
+            "periodo": "mes_passado"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 42.9,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto gastei por mês nos últimos 3 meses?",
+      "resposta": "No último mês, gastei R$ 2.040,20 em Moradia e R$ 890,50 em Viagem. As compras no débito foram as maiores despesas, totalizando R$ 1.299,00.",
+      "esperado": "R$ 3.847,55",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "periodo": "ultimos_3_meses"
+          }
+        }
+      ],
+      "consulta_ok": false,
+      "valor_ok": false,
+      "fatos_ok": false,
+      "frases_ok": true,
+      "segundos": 64.0,
+      "erro": null
+    },
+    {
+      "pergunta": "Qual vai ser a previsão do tempo amanhã?",
+      "resposta": "Não há função disponível para previsão do tempo. Você pode verificar a previsão do tempo online ou em um aplicativo de terceiros.",
+      "esperado": null,
+      "consultas": [],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 7.7,
+      "erro": null
+    }
+  ]
+}

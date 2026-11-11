@@ -1,0 +1,64 @@
+[
+  {
+    "pergunta": "Quanto gastei este mês?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "este_mes"}},
+    "valor": "total_gasto"
+  },
+  {
+    "pergunta": "Quanto gastei com Uber nos últimos 3 meses?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "ultimos_3_meses", "estabelecimento": "uber"}},
+    "valor": "total_gasto",
+    "proibido": ["último mês", "ultimo mês", "este mês"]
+  },
+  {
+    "pergunta": "Quanto gastei com alimentação no mês passado?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "mes_passado", "categoria": "Alimentação"}},
+    "valor": "total_gasto",
+    "proibido": ["este mês"]
+  },
+  {
+    "pergunta": "Quais foram meus 5 maiores gastos este mês?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "este_mes", "limite": 5}},
+    "valor": "maiores_despesas.0.valor"
+  },
+  {
+    "pergunta": "Quanto sobrou de dinheiro no mês passado?",
+    "chamada": {"ferramenta": "resumo_financeiro", "argumentos": {"periodo": "mes_passado"}},
+    "valor": "saldo"
+  },
+  {
+    "pergunta": "Quanto eu recebi este mês?",
+    "chamada": {"ferramenta": "resumo_financeiro", "argumentos": {"periodo": "este_mes"}},
+    "valor": "receitas"
+  },
+  {
+    "pergunta": "Quanto gastei no mercado em setembro?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"mes": "2026-09", "categoria": "Mercado"}},
+    "valor": "total_gasto"
+  },
+  {
+    "pergunta": "Quanto paguei de Netflix nos últimos 3 meses?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "ultimos_3_meses", "estabelecimento": "netflix"}},
+    "valor": "total_gasto",
+    "proibido": ["último mês", "ultimo mês"]
+  },
+  {
+    "pergunta": "Quanto gastei com transporte este mês?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "este_mes", "categoria": "Transporte"}},
+    "valor": "total_gasto"
+  },
+  {
+    "pergunta": "Quanto gastei no iFood no mês passado?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "mes_passado", "estabelecimento": "ifood"}},
+    "valor": "total_gasto"
+  },
+  {
+    "pergunta": "Quanto gastei por mês nos últimos 3 meses?",
+    "chamada": {"ferramenta": "evolucao_mensal", "argumentos": {"meses": 3}},
+    "valor": "meses.2.despesas"
+  },
+  {
+    "pergunta": "Qual vai ser a previsão do tempo amanhã?",
+    "chamada": null
+  }
+]

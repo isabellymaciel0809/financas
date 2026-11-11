@@ -227,6 +227,36 @@ resultados das ferramentas; se não aparecer, a interface mostra um alerta.
 - As ferramentas são só de leitura. O loop tem limite de passos e o histórico, de tamanho.
 - O loop do Ollama é testado com um servidor HTTP simulado (`httpx.MockTransport`), sem rede.
 
+**Avaliação do assistente** ([`evals/run_assistant_eval.py`](backend/evals/run_assistant_eval.py)):
+12 perguntas sobre o extrato de exemplo, cada uma com a consulta que a responde. O valor esperado
+não é escrito à mão: o script roda essa consulta no banco. Para cada resposta, ele confere se a
+consulta foi a certa (filtros equivalentes contam), se o valor aparece no texto, se a checagem de
+fatos não achou valor inventado e se não há frase errada sobre o período.
+
+```bash
+cd backend
+python -m evals.run_assistant_eval --provider ollama --model qwen2.5:3b
+```
+
+| `qwen2.5:3b` | Resultado |
+|---|---|
+| **Respostas totalmente certas** | **75%** (9 de 12) |
+| Consulta certa | 83% |
+| Valor certo na resposta | 83% |
+| Sem valor inventado | 92% |
+| Sem frase errada sobre o período | 92% |
+
+Os 3 erros, que viraram as próximas tarefas:
+- **"Netflix nos últimos 3 meses"**: o modelo usou "Netflix" como *categoria*, a ferramenta
+  recusou, e ele respondeu "não foram encontrados gastos". É o erro mais perigoso, porque parece
+  uma resposta certa.
+- **"Quanto gastei por mês"**: usou `gastos` em vez de `evolucao_mensal` e citou valores que a
+  checagem de fatos marcou.
+- **"Uber nos últimos 3 meses"**: consulta e valor certos, mas escreveu "no último mês".
+
+> As perguntas foram escritas por quem desenvolveu o assistente, e não há um conjunto separado
+> só para teste, como existe na categorização: este número é de desenvolvimento.
+
 ### Lançamento por texto
 
 A mesma cascata da categorização: **um leitor por padrões primeiro, a LLM só se ele não
@@ -395,7 +425,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 180 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest          # 188 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
 ruff check .
 
 cd frontend
@@ -458,7 +488,10 @@ frontend/src/
 - [ ] Leitura do QR Code ao vivo pela câmera do celular (mais confiável que foto)
 - [ ] Conciliação: ligar cada lançamento ao pagamento no extrato bancário
 - [ ] Conjunto de fotos de cupons rotuladas para medir o leitor como já é medida a categorização
-- [ ] Avaliação automatizada do assistente (perguntas com respostas esperadas), como já existe para a categorização
+- [x] Avaliação automatizada do assistente (perguntas com respostas esperadas), como já existe para a categorização
+- [ ] Assistente: nome de loja usado como categoria ("Netflix") deve virar busca por estabelecimento
+- [ ] Assistente: "quanto gastei por mês" deve usar a evolução mensal
+- [ ] Conjunto separado de perguntas de teste para o assistente
 - [x] Segundo conjunto rotulado, separado, só para teste (evita ajustar o prompt para a prova)
 - [ ] Aumentar o conjunto de teste e pedir a outra pessoa para rotular parte dele
 - [ ] Comparar modelos menores (`qwen2.5:1.5b`) e maiores com a mesma avaliação
