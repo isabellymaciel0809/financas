@@ -354,13 +354,27 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 153 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest          # 154 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
 ruff check .
+
+cd frontend
+npx playwright install chromium   # só na primeira vez
+npm run test:e2e                  # teste end-to-end num navegador de verdade
 ```
 
-O CI roda lint, testes e o build do frontend a cada push, e depois **sobe o app no Docker**
-com PostgreSQL e faz um teste de fumaça: cria uma conta e envia uma nota. Foi esse teste que
-faltou para pegar um erro de permissão na pasta de uploads, que só aparecia com o container rodando.
+O **teste end-to-end** (Playwright) abre o app num Chromium, cria a conta, envia um XML de nota
+fiscal, carrega os dados de exemplo e confere o alerta do dashboard e o erro de senha. Ele sobe
+a API sozinho, com um banco novo numa pasta temporária ([`scripts/e2e_server.py`](backend/scripts/e2e_server.py)),
+então nunca toca no banco de desenvolvimento. Logo na primeira execução, ele achou um falso
+alarme que os testes de unidade tratavam como "esperado": **toda NF-e com desconto num item ia
+para revisão**, porque a conta quantidade × unitário não considerava o desconto. No XML essa
+conta é redundante (a SEFAZ já recusa nota em que ela não fecha), e agora só vale para fotos,
+onde costuma indicar erro de OCR.
+
+O CI roda lint, testes, o build do frontend e o teste end-to-end a cada push, e depois **sobe o
+app no Docker** com PostgreSQL e faz um teste de fumaça: cria uma conta e envia uma nota. Foi
+esse teste que faltou para pegar um erro de permissão na pasta de uploads, que só aparecia com o
+container rodando.
 
 ## Estrutura
 

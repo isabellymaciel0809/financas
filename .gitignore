@@ -23,3 +23,7 @@ backend/data/
 *.xlsx
 *.xlsm
 *.xls
+
+# Playwright (teste end-to-end)
+frontend/test-results/
+frontend/playwright-report/

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+ <NFe><infNFe Id="NFe35261192660406005935550010000012341123456781" versao="4.00">
+  <ide><mod>55</mod><serie>1</serie><nNF>1234</nNF><dhEmi>2026-11-03T10:15:00-03:00</dhEmi></ide>
+  <emit><CNPJ>92660406005935</CNPJ><xNome>FRIGELAR COMERCIO E INDUSTRIA LTDA</xNome>
+        <xFant>FRIGELAR</xFant></emit>
+  <det nItem="1"><prod><cProd>S103837</cProd><xProd>FITA PVC 10M LINEAR</xProd>
+    <NCM>39191000</NCM><uCom>PC</uCom><qCom>10.0000</qCom><vUnCom>2.8300</vUnCom>
+    <vProd>28.30</vProd></prod></det>
+  <det nItem="2"><prod><cProd>C151388</cProd><xProd>MANOMETRO ALTA R22/134A</xProd>
+    <NCM>90262010</NCM><uCom>PC</uCom><qCom>1.0000</qCom><vUnCom>25.4100</vUnCom>
+    <vProd>25.41</vProd><vDesc>0.41</vDesc></prod></det>
+  <total><ICMSTot><vProd>53.71</vProd><vDesc>0.41</vDesc><vFrete>15.00</vFrete>
+    <vNF>68.30</vNF></ICMSTot></total>
+  <pag><detPag><tPag>17</tPag><vPag>68.30</vPag></detPag></pag>
+ </infNFe></NFe>
+</nfeProc>
