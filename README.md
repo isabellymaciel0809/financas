@@ -20,7 +20,15 @@ separação existe porque misturar as listas derrubou o acerto da IA (veja
 
 ![CI](https://github.com/isabellymaciel0809/financas/actions/workflows/ci.yml/badge.svg)
 
-<!-- Adicione aqui um GIF ou print: docs/demo.gif -->
+![Visão geral: receitas, despesas, alerta de gasto fora do padrão e origem de cada categoria](docs/img/dashboard.png)
+
+| Lançamentos da empresa | Revisão: o que não fecha é apontado |
+|---|---|
+| ![Lista de lançamentos com status Confirmado e Revisar](docs/img/lancamentos.png) | ![Revisão de uma nota cuja soma dos itens não bate com o total](docs/img/revisao.png) |
+| **Extrato categorizado** (com a origem: regra, memória ou IA) | **Assistente** (consulta os dados por ferramentas) |
+| ![Extrato bancário com a categoria e a origem de cada transação](docs/img/extrato.png) | ![Assistente respondendo os 5 maiores gastos do mês](docs/img/assistente.png) |
+
+<sub>Prints do app rodando no Docker com o Ollama (`qwen2.5:3b`), só com dados fictícios.</sub>
 
 ## Funcionalidades
 
