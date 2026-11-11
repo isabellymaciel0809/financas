@@ -362,7 +362,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 154 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest          # 155 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
 ruff check .
 
 cd frontend
