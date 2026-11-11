@@ -93,17 +93,27 @@ def test_le_xml_de_nfe():
     ]
 
 
-def test_xml_com_frete_nao_acusa_diferenca():
-    doc = parse_nfe_xml(make_nfe_xml())
-    issues = validate(
+def _validate_doc(doc, check_unit_prices: bool) -> list[str]:
+    return validate(
         items=[(i.quantity, i.unit_price_cents, i.total_cents) for i in doc.items],
         items_expected_cents=doc.items_expected_cents,
         total_cents=doc.total_cents,
         declared_item_count=doc.declared_item_count,
         issuer_cnpj=doc.issuer_cnpj,
         has_issue_date=True,
+        check_unit_prices=check_unit_prices,
     )
-    # Só o desconto do manômetro aparece: 1 × 25,41 ≠ 25,00. É informativo e esperado.
+
+
+def test_xml_com_frete_e_desconto_nao_acusa_diferenca():
+    # O manômetro tem desconto: 1 × R$ 25,41 - R$ 0,41 = R$ 25,00. A nota está certa.
+    # (Achado pelo teste end-to-end: antes, toda NF-e com desconto ia para revisão.)
+    assert _validate_doc(parse_nfe_xml(make_nfe_xml()), check_unit_prices=False) == []
+
+
+def test_conta_por_item_continua_valendo_para_foto():
+    # No OCR, quantidade × unitário ≠ total costuma ser erro de leitura: segue acusando.
+    issues = _validate_doc(parse_nfe_xml(make_nfe_xml()), check_unit_prices=True)
     assert len(issues) == 1 and "Item 2" in issues[0]
 
 
@@ -201,9 +211,8 @@ def test_upload_de_xml_lanca_automaticamente(client):
     assert detail["total_cents"] == 5330
     categories = [i["category"]["name"] for i in detail["items"]]
     assert categories == ["Materiais e manutenção", "Ferramentas e equipamentos"]  # por regras
-    # O desconto do manômetro gera um aviso (quantidade × unitário ≠ total): vai para revisão.
-    assert detail["status"] == "needs_review"
-    assert client.post(f"/api/expenses/{expense_id}/confirm").json()["status"] == "confirmed"
+    assert detail["status"] == "confirmed"  # tudo fecha, inclusive com o desconto do manômetro
+    assert detail["issues"] == []
 
 
 def test_mesma_nota_duas_vezes_vira_duplicata(client):
@@ -281,7 +290,7 @@ def test_correcao_de_categoria_na_revisao_vira_memoria(client, db):
     ]
     updated = client.patch(f"/api/expenses/{expense_id}", json={"items": items}).json()
     assert [i["categorized_by"] for i in updated["items"]] == ["manual", "rule"]
-    assert updated["status"] == "confirmed"  # sem o unitário, a divergência do desconto sumiu
+    assert updated["status"] == "confirmed"
 
     # Na próxima nota com o mesmo item, a memória vence a regra.
     other = _upload(client, "outra.xml", make_nfe_xml(key=make_key(number=999))).json()[0]["id"]
@@ -464,11 +473,14 @@ def test_itens_filtro_por_categoria_e_so_confirmados(client):
         if c["name"] == "Ferramentas e equipamentos"
     )
     assert _items(client, category_id=tools)["count"] == 1
-    # Nota em revisão aparece por padrão, mas some com "só confirmados".
-    pending = client.post(
-        "/api/expenses/upload",
-        files=[("files", ("outra.xml", make_nfe_xml(key=make_key(number=777))))],
-    ).json()[0]["id"]
+    # Nota em revisão aparece por padrão, mas some com "só confirmados". Esta não fecha: o
+    # total de produtos declarado (R$ 60,00) não bate com a soma dos itens.
+    wrong = make_nfe_xml(key=make_key(number=777)).replace(
+        b"<vProd>53.71</vProd>", b"<vProd>60.00</vProd>"
+    )
+    pending = client.post("/api/expenses/upload", files=[("files", ("outra.xml", wrong))]).json()[
+        0
+    ]["id"]
     assert client.get(f"/api/expenses/{pending}").json()["status"] == "needs_review"
     assert _items(client, search="manometro")["count"] == 2
     assert _items(client, search="manometro", only_confirmed=True)["count"] == 1

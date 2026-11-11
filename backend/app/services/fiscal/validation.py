@@ -25,7 +25,11 @@ def validate(
     issuer_cnpj: str | None,
     has_issue_date: bool,
     uncategorized: int = 0,
+    check_unit_prices: bool = True,
 ) -> list[str]:
+    """`check_unit_prices=False` no XML: a SEFAZ já recusa nota em que quantidade × unitário
+    não dá o valor do produto, e o total do item vem com o desconto, então a conta aqui só
+    acusaria falsamente toda nota com desconto. A soma dos itens continua sendo conferida."""
     issues: list[str] = []
 
     if not items:
@@ -48,7 +52,7 @@ def validate(
         )
 
     for position, (quantity, unit_price, total) in enumerate(items, start=1):
-        if unit_price is None:
+        if unit_price is None or not check_unit_prices:
             continue
         if abs(round(quantity * unit_price) - total) > ROUNDING_TOLERANCE_CENTS:
             issues.append(

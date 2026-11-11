@@ -111,7 +111,7 @@ def test_mesma_nota_para_duas_pessoas_nao_e_duplicata(two_users):
         # A fila em segundo plano processa em nome do dono do arquivo: lida, e não duplicata.
         detail = client.get(f"/api/expenses/{expense_id}").json()
         assert detail["supplier"]["name"] == "FRIGELAR"
-        assert detail["status"] == "needs_review"  # o desconto do XML de teste gera um aviso
+        assert detail["status"] == "confirmed"
     # Mas a mesma nota duas vezes para a mesma pessoa continua sendo duplicata.
     again = ana.post("/api/expenses/upload", files=[("files", ("nota.xml", xml))]).json()[0]
     assert ana.get(f"/api/expenses/{again['id']}").json()["status"] == "duplicate"

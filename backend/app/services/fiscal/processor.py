@@ -63,6 +63,7 @@ def revalidate(expense: Expense) -> None:
         issuer_cnpj=expense.supplier.cnpj if expense.supplier else None,
         has_issue_date=expense.issue_date is not None,
         uncategorized=sum(1 for i in items if i.category_id is None),
+        check_unit_prices=expense.source != ExpenseSource.nfe_xml,
     )
     if expense.source == ExpenseSource.manual:
         # Lançamento manual não tem CNPJ obrigatório nem contagem de itens de documento.
