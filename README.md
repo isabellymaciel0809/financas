@@ -224,6 +224,8 @@ resultados das ferramentas; se não aparecer, a interface mostra um alerta.
 
 - Os argumentos são validados; um erro (categoria inexistente, período inválido) volta para a
   LLM como mensagem, para ela corrigir sozinha.
+- Quando a pergunta diz o período com todas as letras, o backend o tira do texto, em vez de
+  confiar no que o modelo mandou (ver a avaliação abaixo).
 - As ferramentas são só de leitura. O loop tem limite de passos e o histórico, de tamanho.
 - O loop do Ollama é testado com um servidor HTTP simulado (`httpx.MockTransport`), sem rede.
 
@@ -240,19 +242,34 @@ python -m evals.run_assistant_eval --provider ollama --model qwen2.5:3b
 
 | `qwen2.5:3b` | Resultado |
 |---|---|
-| **Respostas totalmente certas** | **75%** (9 de 12) |
-| Consulta certa | 83% |
-| Valor certo na resposta | 83% |
-| Sem valor inventado | 92% |
-| Sem frase errada sobre o período | 92% |
+| `qwen2.5:3b` | Primeira medição | Depois da correção da Netflix |
+|---|---|---|
+| **Respostas totalmente certas** | **75%** (9 de 12) | **75%** (9 de 12) |
+| Consulta certa | 83% | 92% |
+| Valor certo na resposta | 83% | 92% |
+| Sem valor inventado | 92% | 92% |
+| Sem frase errada sobre o período | 92% | 83% |
 
-Os 3 erros, que viraram as próximas tarefas:
-- **"Netflix nos últimos 3 meses"**: o modelo usou "Netflix" como *categoria*, a ferramenta
-  recusou, e ele respondeu "não foram encontrados gastos". É o erro mais perigoso, porque parece
-  uma resposta certa.
+Os 3 erros da primeira medição viraram tarefas:
+- **"Netflix nos últimos 3 meses"** (corrigido): o modelo usou "Netflix" como *categoria*, a
+  ferramenta recusou, e ele respondeu "não foram encontrados gastos". Era o erro mais perigoso,
+  porque parecia uma resposta certa. Havia uma segunda causa escondida: o modelo mandava também
+  `"mes": "2026-10"`, e o mês tinha prioridade, então mesmo com o filtro certo a resposta sairia
+  de um mês só. Duas correções no backend, sem mexer no prompt:
+  - nome que não é categoria, mas aparece nas descrições, vira busca por estabelecimento (com um
+    aviso no resultado); se não aparece em lugar nenhum, o erro volta para a LLM como antes;
+  - quando a pergunta diz o período ("nos últimos 3 meses", "em setembro", "mês passado"), o
+    backend tira o período do próprio texto e ignora o do modelo. Se não diz, ou diz dois, quem
+    decide é a LLM.
+
+  Agora a consulta e o valor saem certos (R$ 134,70). A pergunta ainda conta como erro porque a
+  resposta diz "no último mês": o mesmo erro de frase do Uber, que ficou para a próxima tarefa.
 - **"Quanto gastei por mês"**: usou `gastos` em vez de `evolucao_mensal` e citou valores que a
   checagem de fatos marcou.
 - **"Uber nos últimos 3 meses"**: consulta e valor certos, mas escreveu "no último mês".
+
+A avaliação refaz cada consulta do modelo como o app a executou, com essas correções; o
+relatório guarda os argumentos que o modelo mandou.
 
 > As perguntas foram escritas por quem desenvolveu o assistente, e não há um conjunto separado
 > só para teste, como existe na categorização: este número é de desenvolvimento.
@@ -425,7 +442,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 188 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest          # 206 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
 ruff check .
 
 cd frontend
@@ -489,7 +506,8 @@ frontend/src/
 - [ ] Conciliação: ligar cada lançamento ao pagamento no extrato bancário
 - [ ] Conjunto de fotos de cupons rotuladas para medir o leitor como já é medida a categorização
 - [x] Avaliação automatizada do assistente (perguntas com respostas esperadas), como já existe para a categorização
-- [ ] Assistente: nome de loja usado como categoria ("Netflix") deve virar busca por estabelecimento
+- [x] Assistente: nome de loja usado como categoria ("Netflix") deve virar busca por estabelecimento
+- [ ] Assistente: frase "no último mês" em pergunta de 3 meses
 - [ ] Assistente: "quanto gastei por mês" deve usar a evolução mensal
 - [ ] Conjunto separado de perguntas de teste para o assistente
 - [x] Segundo conjunto rotulado, separado, só para teste (evita ajustar o prompt para a prova)

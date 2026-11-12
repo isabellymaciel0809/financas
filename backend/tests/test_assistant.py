@@ -5,7 +5,15 @@ import httpx
 import pytest
 
 from app.models import Transaction
-from app.services.assistant import TOOLS, Toolbox, ask, brl, money_values, resolve_period
+from app.services.assistant import (
+    TOOLS,
+    Toolbox,
+    ask,
+    brl,
+    money_values,
+    period_from_text,
+    resolve_period,
+)
 from app.services.categorizer.llm import ChatResult, OllamaProvider, ToolCall
 from app.services.categorizer.pipeline import categorize_transactions
 from app.services.text import merchant_key
@@ -100,6 +108,61 @@ def test_periodo_no_campo_do_mes_e_entendido(toolbox):
     assert junto["periodo"] == toolbox.execute("gastos", {"periodo": "ultimos_3_meses"})["periodo"]
     sozinho = toolbox.execute("gastos", {"mes": "mes_passado"})
     assert sozinho["periodo"] == "01/09/2026 a 30/09/2026"
+
+
+def test_nome_de_loja_como_categoria_vira_busca_por_estabelecimento(toolbox):
+    # Visto com o qwen2.5:3b real: {"categoria": "Netflix"}, a ferramenta recusava e o modelo
+    # respondia "não foram encontrados gastos".
+    result = toolbox.execute("gastos", {"periodo": "ultimos_3_meses", "categoria": "Uber"})
+    assert result["total_gasto"] == "R$ 43,00"
+    assert result["filtro"] == "Uber"
+    assert "não é uma categoria" in result["observacao"]
+    # Categoria de verdade não ganha observação.
+    assert "observacao" not in toolbox.execute("gastos", {"categoria": "alimentacao"})
+
+
+def test_nome_que_nao_e_categoria_nem_loja_continua_erro(toolbox):
+    assert "não existe" in toolbox.execute("gastos", {"categoria": "Netflix"})["erro"]
+    # Com estabelecimento já preenchido, a categoria errada não é reaproveitada.
+    result = toolbox.execute("gastos", {"categoria": "Uber", "estabelecimento": "ifood"})
+    assert "não existe" in result["erro"]
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("Quanto gastei este mês?", {"periodo": "este_mes"}),
+        ("e nesse mês?", {"periodo": "este_mes"}),
+        ("Quanto sobrou no mês passado?", {"periodo": "mes_passado"}),
+        ("Quanto paguei de Netflix nos últimos 3 meses?", {"periodo": "ultimos_3_meses"}),
+        ("gastos dos últimos seis meses", {"periodo": "ultimos_6_meses"}),
+        ("quanto recebi este ano", {"periodo": "este_ano"}),
+        ("e no ano passado?", {"periodo": "ano_passado"}),
+        ("Quanto gastei no mercado em setembro?", {"mes": "2026-09"}),
+        ("e em dezembro?", {"mes": "2025-12"}),  # hoje é outubro: dezembro passado
+        ("gastos de março de 2025", {"mes": "2025-03"}),
+        ("Quanto gastei com Uber?", None),  # sem período: a LLM decide
+        ("compare setembro e outubro", None),  # dois períodos: a LLM decide
+        ("gastos deste mês e do mês passado", None),
+    ],
+)
+def test_periodo_tirado_da_pergunta(question, expected):
+    assert period_from_text(question, TODAY) == expected
+
+
+def test_periodo_da_pergunta_tem_prioridade_sobre_o_da_llm(db, toolbox):
+    # Visto com o qwen2.5:3b real: "últimos 3 meses" com {"periodo": "ultimos_3_meses",
+    # "mes": "2026-10"}; como o mês tem prioridade, a resposta saía só de outubro.
+    llm_args = {"periodo": "ultimos_3_meses", "mes": "2026-09", "estabelecimento": "uber"}
+    sem_pergunta = toolbox.execute("gastos", llm_args)
+    assert sem_pergunta["total_gasto"] == "R$ 25,00"
+
+    com_pergunta = Toolbox(db, today=TODAY, question="Quanto gastei de Uber nos últimos 3 meses?")
+    result = com_pergunta.execute("gastos", llm_args)
+    assert result["total_gasto"] == "R$ 43,00"
+    assert result["periodo"] == "01/08/2026 a 20/10/2026"
+    # evolucao_mensal não tem período: os argumentos dela não mudam.
+    assert len(com_pergunta.execute("evolucao_mensal", {"meses": 2})["meses"]) == 2
 
 
 def test_resumo_financeiro(toolbox):

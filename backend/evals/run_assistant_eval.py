@@ -3,8 +3,8 @@
 Para cada pergunta de evals/assistente.json, o script faz a pergunta ao assistente de verdade
 (mesmo prompt e mesmas ferramentas do app) e confere quatro coisas:
 
-    consulta   alguma ferramenta chamada pelo modelo devolve o mesmo valor que a consulta
-               esperada (filtros diferentes, mas equivalentes, contam como certos)
+    consulta   alguma ferramenta chamada pelo modelo, executada como no app, devolve o mesmo
+               valor que a consulta esperada (filtros equivalentes contam como certos)
     valor      a resposta escrita traz esse valor
     fatos      a checagem de fatos não achou nenhum valor inventado
     frases     a resposta não usa frases proibidas para a pergunta (ex.: "último mês" quando
@@ -118,9 +118,12 @@ def evaluate(db: Session, provider: LLMProvider, question: Question) -> Result:
     if question.chamada is None:
         consulta_ok = valor_ok = not money_in(text)  # fora do escopo: não pode citar valores
     else:
+        # Refaz cada chamada como o app a executou, com as correções do backend (ex.: o período
+        # tirado da pergunta). Os argumentos guardados no relatório são os que o modelo mandou.
+        as_in_app = Toolbox(db, today=TODAY, question=question.pergunta)
         consulta_ok = any(
             c["ferramenta"] == question.chamada["ferramenta"]
-            and lookup(toolbox.execute(c["ferramenta"], c["argumentos"]), question.valor)
+            and lookup(as_in_app.execute(c["ferramenta"], c["argumentos"]), question.valor)
             == expected
             for c in calls
         )

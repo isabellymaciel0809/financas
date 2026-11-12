@@ -3,7 +3,8 @@
 Princípio de projeto: a LLM só escolhe a intenção; o backend faz todo o resto.
 Testes com um modelo local de 3B mostraram que ele erra contas de datas, esquece de separar
 receitas de despesas e copia sinais negativos para a resposta. Por isso:
-- períodos são opções fechadas ("mes_passado") e o backend calcula as datas;
+- períodos são opções fechadas ("mes_passado") e o backend calcula as datas; quando a pergunta
+  diz o período ("nos últimos 3 meses", "em setembro"), o backend o tira do próprio texto;
 - a ferramenta `gastos` só enxerga despesas e devolve valores positivos;
 - todo valor volta já formatado em reais, então não sobra conta para a LLM fazer.
 
@@ -75,6 +76,46 @@ def resolve_period(period: Period, month: str | None, today: date) -> tuple[date
             return date(today.year - 1, 1, 1), date(today.year - 1, 12, 31)
         case _:
             return date(1900, 1, 1), today
+
+
+MONTH_NAMES = (
+    "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
+    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+)  # fmt: skip
+
+_TEXT_PERIODS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\b(?:[nd]?este|[nd]?esse) mes\b|\bmes atual\b"), "este_mes"),
+    (re.compile(r"\bmes passado\b|\bultimo mes\b"), "mes_passado"),
+    (re.compile(r"\bultimos (?:3|tres) meses\b"), "ultimos_3_meses"),
+    (re.compile(r"\bultimos (?:6|seis) meses\b"), "ultimos_6_meses"),
+    (re.compile(r"\b(?:[nd]?este|[nd]?esse) ano\b"), "este_ano"),
+    (re.compile(r"\bano passado\b"), "ano_passado"),
+]
+_MONTH_NAME = re.compile(r"\b(" + "|".join(MONTH_NAMES) + r")\b(?: de (\d{4}))?")
+
+
+def period_from_text(text: str, today: date) -> dict[str, str] | None:
+    """Período dito com todas as letras na pergunta: {"periodo": ...} ou {"mes": "AAAA-MM"}.
+
+    Na avaliação, o qwen2.5:3b mandava `mes` em quase toda chamada, mesmo quando a pergunta era
+    "nos últimos 3 meses", e o mês tem prioridade: a resposta saía de um mês só. Quando o texto
+    é claro, o backend decide; se não houver período, ou houver mais de um, quem decide é a LLM.
+    """
+    plain = simplify(text)
+    found: set[tuple[str, str]] = {
+        ("periodo", period) for pattern, period in _TEXT_PERIODS if pattern.search(plain)
+    }
+    for match in _MONTH_NAME.finditer(plain):
+        month = MONTH_NAMES.index(match.group(1)) + 1
+        if match.group(2):
+            year = int(match.group(2))
+        else:  # "em setembro" dito em março: setembro passado
+            year = today.year if month <= today.month else today.year - 1
+        found.add(("mes", f"{year}-{month:02d}"))
+    if len(found) != 1:
+        return None
+    key, value = found.pop()
+    return {key: value}
 
 
 class PeriodArgs(BaseModel):
@@ -166,10 +207,11 @@ sobre os dados do app."""
 class Toolbox:
     """Executa as ferramentas do assistente sobre o banco."""
 
-    def __init__(self, db: Session, today: date | None = None):
+    def __init__(self, db: Session, today: date | None = None, question: str | None = None):
         self.db = db
         self.today = today or date.today()
         self.categories = list(db.scalars(select(Category).order_by(Category.name)))
+        self.period_hint = period_from_text(question, self.today) if question else None
 
     def execute(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         handlers = {
@@ -182,6 +224,10 @@ class Toolbox:
         schema, handler = handlers[name]
         # Modelos pequenos às vezes mandam campos vazios ou "null" em vez de omitir.
         cleaned = {k: v for k, v in arguments.items() if v not in (None, "", "null", "None")}
+        if self.period_hint and issubclass(schema, PeriodArgs):
+            cleaned.pop("periodo", None)
+            cleaned.pop("mes", None)
+            cleaned.update(self.period_hint)
         # E às vezes põem um período no campo do mês ({"mes": "este_mes"}). Com o qwen2.5:3b, isso
         # virava erro e o modelo desistia em vez de corrigir: o backend entende sozinho.
         if cleaned.get("mes") in Period.__args__:
@@ -211,13 +257,30 @@ class Toolbox:
     def _in_period(self, start: date, end: date):
         return (Transaction.date >= start, Transaction.date < end + timedelta(days=1))
 
+    def _is_merchant(self, name: str) -> bool:
+        """Algum gasto, em qualquer data, tem esse nome na descrição?"""
+        expense = (Transaction.amount_cents < 0, Transaction.description.ilike(f"%{name}%"))
+        return self.db.scalar(select(Transaction.id).where(*expense).limit(1)) is not None
+
     def gastos(self, args: SpendingArgs) -> dict[str, Any]:
         start, end, label = self._period(args)
         conditions = [*self._in_period(start, end), Transaction.amount_cents < 0]
+        category, merchant, note = None, args.estabelecimento, None
         if args.categoria:
-            conditions.append(Transaction.category_id == self._resolve_category(args.categoria).id)
-        if args.estabelecimento:
-            conditions.append(Transaction.description.ilike(f"%{args.estabelecimento}%"))
+            try:
+                category = self._resolve_category(args.categoria)
+            except ValueError:
+                # Na avaliação, o modelo pôs "Netflix" como categoria, recebeu o erro e respondeu
+                # "não foram encontrados gastos": uma resposta errada que parece certa. Se o nome
+                # aparece nas descrições, a busca vira por estabelecimento; senão, o erro volta.
+                if merchant or not self._is_merchant(args.categoria):
+                    raise
+                merchant = args.categoria
+                note = f"'{merchant}' não é uma categoria: a busca foi pelo nome na descrição."
+        if category:
+            conditions.append(Transaction.category_id == category.id)
+        if merchant:
+            conditions.append(Transaction.description.ilike(f"%{merchant}%"))
 
         transactions = self.db.scalars(select(Transaction).where(*conditions)).all()
         total = -sum(tx.amount_cents for tx in transactions)
@@ -227,10 +290,11 @@ class Toolbox:
             by_category[name] = by_category.get(name, 0) - tx.amount_cents
         largest = sorted(transactions, key=lambda tx: tx.amount_cents)[: args.limite]
 
-        filters = [f for f in (args.categoria, args.estabelecimento) if f]
+        filters = [f for f in (category.name if category else None, merchant) if f]
         return {
             "periodo": label,
             "filtro": " / ".join(filters) or "todas as despesas",
+            **({"observacao": note} if note else {}),
             "total_gasto": brl(total),
             "quantidade_de_despesas": len(transactions),
             "por_categoria": [
@@ -324,7 +388,8 @@ def ask(
     messages: list[dict[str, str]],
     today: date | None = None,
 ) -> Answer:
-    toolbox = Toolbox(db, today)
+    question = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), None)
+    toolbox = Toolbox(db, today, question)
     system = SYSTEM_TEMPLATE.format(
         today=f"{toolbox.today:%d/%m/%Y}",
         categories=", ".join(c.name for c in toolbox.categories),

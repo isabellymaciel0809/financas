@@ -81,10 +81,29 @@ def test_avaliacao_do_assistente_aceita_resposta_certa():
     assert r.ok, r
 
 
-def test_avaliacao_do_assistente_pega_periodo_errado():
-    errado = ("gastos", {"periodo": "este_mes", "estabelecimento": "uber"})
+def test_avaliacao_do_assistente_pega_consulta_errada():
+    errado = ("gastos", {"periodo": "ultimos_3_meses", "estabelecimento": "ifood"})
     r = _avaliar(_pergunta(), errado, lambda res: f"Você gastou {res['total_gasto']}.")
     assert not r.consulta_ok and not r.valor_ok
+
+
+def test_avaliacao_do_assistente_pega_periodo_errado_quando_a_pergunta_nao_diz():
+    sem_periodo = _pergunta(
+        pergunta="Quanto gastei com Uber?",
+        chamada={"ferramenta": "gastos", "argumentos": {"periodo": "ultimos_3_meses",
+                                                         "estabelecimento": "uber"}},
+    )  # fmt: skip
+    errado = ("gastos", {"periodo": "este_mes", "estabelecimento": "uber"})
+    r = _avaliar(sem_periodo, errado, lambda res: f"Você gastou {res['total_gasto']}.")
+    assert not r.consulta_ok and not r.valor_ok
+
+
+def test_avaliacao_do_assistente_conta_a_correcao_de_periodo_do_backend():
+    # A pergunta diz "últimos 3 meses": o app corrige o período errado do modelo, e a avaliação
+    # refaz a consulta como o app fez.
+    errado = ("gastos", {"periodo": "este_mes", "mes": "2026-10", "estabelecimento": "uber"})
+    r = _avaliar(_pergunta(), errado, lambda res: f"Nos últimos 3 meses: {res['total_gasto']}.")
+    assert r.ok, r
 
 
 def test_avaliacao_do_assistente_pega_frase_errada_e_valor_inventado():
