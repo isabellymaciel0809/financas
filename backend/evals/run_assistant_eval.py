@@ -15,6 +15,7 @@ mudar os dados de exemplo não quebra a avaliação.
 
 Uso (dentro de backend/):
     python -m evals.run_assistant_eval --provider ollama --model qwen2.5:3b
+    python -m evals.run_assistant_eval --provider ollama --model qwen2.5:3b --conjunto teste
 """
 
 import argparse
@@ -38,6 +39,14 @@ from app.services.ingest import import_statement, seed_categories
 EVAL_DIR = Path(__file__).resolve().parent
 TODAY = date(2026, 11, 11)  # fixo: "este mês" e "mês passado" sempre apontam para os mesmos dados
 MONEY = re.compile(r"\d{1,3}(?:\.\d{3})*,\d{2}")
+
+# conjunto -> (arquivo, sufixo do relatório, rótulo no título)
+DATASETS = {
+    "dev": ("assistente.json", "", ""),
+    # Escritas pela dona do projeto, sem ver as de desenvolvimento, e nunca usadas para ajustar
+    # o assistente. Se uma correção nascer de um erro daqui, a pergunta passa para o dev.
+    "teste": ("assistente-teste.json", "-teste", " · conjunto de teste"),
+}
 
 
 @dataclass
@@ -84,9 +93,18 @@ def demo_db() -> Session:
 
 
 def lookup(result: dict[str, Any], path: str) -> Any:
+    """Segue um caminho no resultado: "total_gasto", "meses.2.despesas" ou, para achar um item
+    de uma lista pelo conteúdo, "por_categoria.categoria=Compras.total"."""
     value: Any = result
     for part in path.split("."):
-        value = value[int(part)] if isinstance(value, list) else value.get(part)
+        if isinstance(value, list):
+            if "=" in part:
+                key, _, wanted = part.partition("=")
+                value = next((item for item in value if str(item.get(key)) == wanted), None)
+            else:
+                value = value[int(part)] if int(part) < len(value) else None
+        else:
+            value = value.get(part)
         if value is None:
             return None
     return value
@@ -116,7 +134,8 @@ def evaluate(db: Session, provider: LLMProvider, question: Question) -> Result:
     text = answer.result.answer
     calls = [{"ferramenta": c.name, "argumentos": c.arguments} for c in answer.result.tool_calls]
     if question.chamada is None:
-        consulta_ok = valor_ok = not money_in(text)  # fora do escopo: não pode citar valores
+        # Fora do escopo ou sem dados: não pode citar valores ("R$ 0,00" pode).
+        consulta_ok = valor_ok = not (money_in(text) - {"0,00"})
     else:
         # Refaz cada chamada como o app a executou, com as correções do backend (ex.: o período
         # tirado da pergunta). Os argumentos guardados no relatório são os que o modelo mandou.
@@ -215,6 +234,12 @@ def main() -> None:
     )
     parser.add_argument("--provider", choices=["ollama", "anthropic"], default="ollama")
     parser.add_argument("--model", help="Modelo do provedor (padrão: o da configuração)")
+    parser.add_argument(
+        "--conjunto",
+        choices=list(DATASETS),
+        default="dev",
+        help="dev: perguntas usadas para corrigir o assistente; teste: nunca usadas para isso",
+    )
     args = parser.parse_args()
 
     overrides: dict[str, Any] = {"llm_provider": args.provider}
@@ -225,13 +250,15 @@ def main() -> None:
         raise SystemExit(f"Provedor '{args.provider}' indisponível.")
 
     db = demo_db()
-    results = [evaluate(db, provider, q) for q in load_questions(EVAL_DIR / "assistente.json")]
+    dataset, suffix, label = DATASETS[args.conjunto]
+    results = [evaluate(db, provider, q) for q in load_questions(EVAL_DIR / dataset)]
     summary = summarize(results)
-    text = report(summary, results, f"{provider.name} · `{provider.model}`")
+    text = report(summary, results, f"{provider.name} · `{provider.model}`{label}")
 
     out_dir = EVAL_DIR / "results"
     out_dir.mkdir(exist_ok=True)
-    name = f"assistente-{provider.name}-{provider.model.replace(':', '_').replace('/', '_')}"
+    model = provider.model.replace(":", "_").replace("/", "_")
+    name = f"assistente{suffix}-{provider.name}-{model}"
     (out_dir / f"{name}.md").write_text(text, encoding="utf-8")
     (out_dir / f"{name}.json").write_text(
         json.dumps(

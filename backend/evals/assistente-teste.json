@@ -1,0 +1,46 @@
+[
+  {
+    "pergunta": "Qual foi a coisa mais cara que comprei esse mes?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "este_mes"}},
+    "valor": "maiores_despesas.0.valor"
+  },
+  {
+    "pergunta": "Quanto eu paguei de aluguel esse mes?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "este_mes", "estabelecimento": "aluguel"}},
+    "valor": "total_gasto"
+  },
+  {
+    "pergunta": "Qual o meu maior gasto recorrente?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "este_mes"}},
+    "valor": "maiores_despesas.0.valor"
+  },
+  {
+    "pergunta": "Quanto eu pago de Netflix?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "este_mes", "estabelecimento": "netflix"}},
+    "valor": "total_gasto"
+  },
+  {
+    "pergunta": "Quanto entrou de salario esse mes?",
+    "chamada": {"ferramenta": "resumo_financeiro", "argumentos": {"periodo": "este_mes"}},
+    "valor": "receitas_por_categoria.categoria=Salário.total"
+  },
+  {
+    "pergunta": "Eu gastei mais em qual mes comparado com novembro?",
+    "chamada": {"ferramenta": "evolucao_mensal", "argumentos": {"meses": 3}},
+    "valor": "meses.mes=10/2026.despesas"
+  },
+  {
+    "pergunta": "qto tive de receita esse mes contando salario, freela, e pagamento de emprestimos?",
+    "chamada": {"ferramenta": "resumo_financeiro", "argumentos": {"periodo": "este_mes"}},
+    "valor": "receitas"
+  },
+  {
+    "pergunta": "quais gastos vc acha q foi a mais que mes passado?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "este_mes"}},
+    "valor": "por_categoria.categoria=Compras.total"
+  },
+  {
+    "pergunta": "qto gastei de petshop?",
+    "chamada": null
+  }
+]

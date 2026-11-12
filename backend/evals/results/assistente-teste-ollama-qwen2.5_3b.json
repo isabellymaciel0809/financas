@@ -1,0 +1,198 @@
+{
+  "summary": {
+    "total": 9,
+    "acerto": 0.667,
+    "consulta_certa": 0.667,
+    "valor_na_resposta": 0.667,
+    "sem_valor_inventado": 1.0,
+    "sem_frase_proibida": 1.0,
+    "segundos_por_pergunta": 26.5
+  },
+  "results": [
+    {
+      "pergunta": "Qual foi a coisa mais cara que comprei esse mes?",
+      "resposta": "Você gastou mais dinheiro comprando no débito na AMAZON MARKETPLACE no dia 09/11/2026, no valor de R$ 1.299,00.",
+      "esperado": "R$ 1.800,00",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "periodo": "este_mes",
+            "limite": 1,
+            "categoria": "Compras"
+          }
+        }
+      ],
+      "consulta_ok": false,
+      "valor_ok": false,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 66.0,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto eu paguei de aluguel esse mes?",
+      "resposta": "Você pagou R$ 1.800,00 de aluguel neste mês.",
+      "esperado": "R$ 1.800,00",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "categoria": "Moradia",
+            "periodo": "este_mes"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 20.1,
+      "erro": null
+    },
+    {
+      "pergunta": "Qual o meu maior gasto recorrente?",
+      "resposta": "O maior gasto recorrente neste mês foi R$ 1.800,00 em Moradia.",
+      "esperado": "R$ 1.800,00",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "periodo": "este_mes",
+            "limite": 1
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 24.2,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto eu pago de Netflix?",
+      "resposta": "Você pagou R$ 44,90 de Netflix neste mês. A despesa foi classificada como Assinaturas.",
+      "esperado": "R$ 44,90",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "categoria": "Netflix",
+            "periodo": "este_mes"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 14.9,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto entrou de salario esse mes?",
+      "resposta": "Você recebeu R$ 6.500,00 de salário neste mês.",
+      "esperado": "R$ 6.500,00",
+      "consultas": [
+        {
+          "ferramenta": "resumo_financeiro",
+          "argumentos": {
+            "mes": "2026-11",
+            "periodo": "este_mes"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 13.2,
+      "erro": null
+    },
+    {
+      "pergunta": "Eu gastei mais em qual mes comparado com novembro?",
+      "resposta": "Em novembro de 2026, você gastou mais em Moradia, com um total de R$ 1.800,00. As maiores despesas foram pagamentos de aluguel e compras no débito.",
+      "esperado": "R$ 4.555,68",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "periodo": "novembro",
+            "mes": null,
+            "limite": 5
+          }
+        }
+      ],
+      "consulta_ok": false,
+      "valor_ok": false,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 31.8,
+      "erro": null
+    },
+    {
+      "pergunta": "qto tive de receita esse mes contando salario, freela, e pagamento de emprestimos?",
+      "resposta": "Neste mês, você teve uma receita total de R$ 6.500,00, o que resultou em um saldo de R$ 2.652,45. Você sobrou dinheiro.",
+      "esperado": "R$ 6.500,00",
+      "consultas": [
+        {
+          "ferramenta": "resumo_financeiro",
+          "argumentos": {
+            "mes": "2026-11",
+            "periodo": "este_mes"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 18.3,
+      "erro": null
+    },
+    {
+      "pergunta": "quais gastos vc acha q foi a mais que mes passado?",
+      "resposta": "No mês passado, o maior gasto foi R$ 1.800,00 em Moradia.",
+      "esperado": "R$ 1.426,47",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "estabelecimento": "",
+            "limite": 1,
+            "periodo": "mes_passado",
+            "mes": "2026-10",
+            "categoria": ""
+          }
+        }
+      ],
+      "consulta_ok": false,
+      "valor_ok": false,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 30.7,
+      "erro": null
+    },
+    {
+      "pergunta": "qto gastei de petshop?",
+      "resposta": "Desculpe, não há registros de gastos específicos no período atual relacionados à categoria 'Petshop'. Você pode verificar outras categorias relacionadas à despesas domésticas ou serviços de pet.",
+      "esperado": null,
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "categoria": "Petshop",
+            "periodo": "este_mes"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 19.2,
+      "erro": null
+    }
+  ]
+}

@@ -134,8 +134,30 @@ def test_perguntas_do_assistente_tem_valor_esperado():
     from evals.run_assistant_eval import EVAL_DIR, Toolbox, demo_db, load_questions, lookup
 
     toolbox = Toolbox(demo_db(), today=date(2026, 11, 11))
-    for q in load_questions(EVAL_DIR / "assistente.json"):
+    dev = load_questions(EVAL_DIR / "assistente.json")
+    teste = load_questions(EVAL_DIR / "assistente-teste.json")
+    # Uma pergunta não pode estar nos dois conjuntos.
+    assert not {q.pergunta for q in dev} & {q.pergunta for q in teste}
+    for q in dev + teste:
         if q.chamada:
             result = toolbox.execute(q.chamada["ferramenta"], q.chamada["argumentos"])
             assert "erro" not in result, (q.pergunta, result)
             assert lookup(result, q.valor), q.pergunta
+
+
+def test_lookup_acha_item_da_lista_pelo_conteudo():
+    from evals.run_assistant_eval import lookup
+
+    result = {"por_categoria": [{"categoria": "Moradia", "total": "R$ 1,00"},
+                                {"categoria": "Compras", "total": "R$ 2,00"}]}  # fmt: skip
+    assert lookup(result, "por_categoria.categoria=Compras.total") == "R$ 2,00"
+    assert lookup(result, "por_categoria.1.total") == "R$ 2,00"
+    assert lookup(result, "por_categoria.categoria=Pets.total") is None
+    assert lookup(result, "por_categoria.5.total") is None
+
+
+def test_pergunta_sem_dados_pode_citar_zero():
+    sem_dados = _pergunta(pergunta="qto gastei de petshop?", chamada=None, valor=None, proibido=[])
+    consulta = ("gastos", {"periodo": "tudo", "estabelecimento": "petshop"})  # devolve R$ 0,00
+    assert _avaliar(sem_dados, consulta, lambda res: f"Você gastou {res['total_gasto']}.").ok
+    assert not _avaliar(sem_dados, consulta, lambda res: "Você gastou R$ 35,00 com petshop.").ok

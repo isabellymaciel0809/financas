@@ -275,13 +275,39 @@ Os 3 erros da primeira medição, e o que cada um ensinou:
 A avaliação refaz cada consulta do modelo como o app a executou, com essas correções; o
 relatório guarda os argumentos que o modelo mandou.
 
-> **Os 100% não são a nota do assistente.** As 12 perguntas foram escritas por quem desenvolveu
-> o assistente e usadas para corrigir cada erro acima: é o conjunto de *desenvolvimento*. Para
-> medir de verdade, falta um conjunto separado de perguntas que nunca tenham sido usadas para
-> ajustar nada, como já existe na categorização. Também é uma rodada só: o modelo não é
-> determinístico, e com 12 perguntas cada uma vale 8 pontos. Um critério se mostrou rígido
-> demais: numa rodada, "No último mês você pagou R$ 44,90 (...) nos últimos 3 meses, R$ 134,70"
-> foi marcado como erro de frase, mas a frase estava certa.
+> **Os 100% não são a nota do assistente.** As 12 perguntas acima foram escritas por quem
+> desenvolveu o assistente e usadas para corrigir cada erro: é o conjunto de *desenvolvimento*.
+
+**Conjunto de teste** ([`evals/assistente-teste.json`](backend/evals/assistente-teste.json)):
+9 perguntas escritas pela dona do projeto, do jeito que ela digitaria no celular ("qto tive de
+receita esse mes..."), sem ver as de desenvolvimento, e rodadas **uma vez**, depois de todas as
+correções. Elas nunca são usadas para ajustar o assistente; se uma correção nascer de um erro
+delas, a pergunta passa para o conjunto de desenvolvimento.
+
+```bash
+python -m evals.run_assistant_eval --provider ollama --model qwen2.5:3b --conjunto teste
+```
+
+| `qwen2.5:3b` | Desenvolvimento (12) | **Teste (9)** |
+|---|---|---|
+| **Respostas totalmente certas** | 100% | **67%** (6 de 9) |
+| Consulta certa | 100% | 67% |
+| Valor certo na resposta | 100% | 67% |
+| Sem valor inventado | 100% | 100% |
+| Sem frase errada sobre o período | 100% | 100% |
+
+A diferença entre 100% e 67% é o motivo de existir um conjunto de teste. Os 3 erros:
+- **Comparação entre meses (2 de 2 erradas)**: "em qual mês gastei mais, comparado com
+  novembro?" e "quais gastos foram a mais que no mês passado?". O modelo consultou um mês só.
+  Nenhuma ferramenta compara períodos, e o modelo de 3B não faz duas consultas para comparar:
+  é um limite real, que o conjunto de desenvolvimento não mostrava.
+- **"Qual foi a coisa mais cara que comprei esse mês?"**: o modelo entendeu "comprei" como a
+  categoria *Compras* e respondeu a Amazon (R$ 1.299,00), não o aluguel (R$ 1.800,00). O rótulo
+  é discutível (ninguém "compra" o aluguel), mas não foi trocado depois de ver o resultado.
+
+Não houve nenhum valor inventado nem frase errada sobre o período. O petshop, que não existe no
+extrato, foi respondido sem inventar valor. Com 9 perguntas, cada uma vale 11 pontos: o número
+é uma indicação, não uma medida precisa.
 
 ### Lançamento por texto
 
@@ -451,7 +477,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 214 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest          # 216 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
 ruff check .
 
 cd frontend
@@ -518,7 +544,8 @@ frontend/src/
 - [x] Assistente: nome de loja usado como categoria ("Netflix") deve virar busca por estabelecimento
 - [x] Assistente: frase "no último mês" em pergunta de 3 meses
 - [x] Assistente: "quanto gastei por mês" deve usar a evolução mensal
-- [ ] Conjunto separado de perguntas de teste para o assistente
+- [x] Conjunto separado de perguntas de teste para o assistente (67% com `qwen2.5:3b`)
+- [ ] Assistente: comparar períodos ("gastei mais que no mês passado?"), o erro do conjunto de teste
 - [x] Segundo conjunto rotulado, separado, só para teste (evita ajustar o prompt para a prova)
 - [ ] Aumentar o conjunto de teste e pedir a outra pessoa para rotular parte dele
 - [ ] Comparar modelos menores (`qwen2.5:1.5b`) e maiores com a mesma avaliação
