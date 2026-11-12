@@ -79,9 +79,22 @@ def resolve_period(period: Period, month: str | None, today: date) -> tuple[date
 
 
 MONTH_NAMES = (
-    "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
+    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
     "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 )  # fmt: skip
+_PLAIN_MONTHS = [simplify(m) for m in MONTH_NAMES]
+
+# Como o período aparece para a LLM. Só com as datas ("01/09 a 11/11"), o qwen2.5:3b escrevia
+# "no último mês" em perguntas de 3 meses; com o nome, ele tem a frase certa para copiar.
+PERIOD_NAMES: dict[str, str] = {
+    "este_mes": "este mês",
+    "mes_passado": "mês passado",
+    "ultimos_3_meses": "últimos 3 meses",
+    "ultimos_6_meses": "últimos 6 meses",
+    "este_ano": "este ano",
+    "ano_passado": "ano passado",
+    "tudo": "todo o histórico",
+}
 
 _TEXT_PERIODS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b(?:[nd]?este|[nd]?esse) mes\b|\bmes atual\b"), "este_mes"),
@@ -91,7 +104,8 @@ _TEXT_PERIODS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b(?:[nd]?este|[nd]?esse) ano\b"), "este_ano"),
     (re.compile(r"\bano passado\b"), "ano_passado"),
 ]
-_MONTH_NAME = re.compile(r"\b(" + "|".join(MONTH_NAMES) + r")\b(?: de (\d{4}))?")
+_MONTH_NAME = re.compile(r"\b(" + "|".join(_PLAIN_MONTHS) + r")\b(?: de (\d{4}))?")
+_PER_MONTH = re.compile(r"\bpor mes\b|\bmes a mes\b|\bcada mes\b|\bmensalmente\b")
 
 
 def period_from_text(text: str, today: date) -> dict[str, str] | None:
@@ -106,7 +120,7 @@ def period_from_text(text: str, today: date) -> dict[str, str] | None:
         ("periodo", period) for pattern, period in _TEXT_PERIODS if pattern.search(plain)
     }
     for match in _MONTH_NAME.finditer(plain):
-        month = MONTH_NAMES.index(match.group(1)) + 1
+        month = _PLAIN_MONTHS.index(match.group(1)) + 1
         if match.group(2):
             year = int(match.group(2))
         else:  # "em setembro" dito em março: setembro passado
@@ -136,6 +150,8 @@ class SpendingArgs(PeriodArgs):
 
 class MonthlyArgs(BaseModel):
     meses: int = Field(6, ge=1, le=24)
+    # Não aparece para a LLM: o backend liga quando a pergunta é sobre gastos por mês.
+    so_despesas: bool = False
 
 
 _PERIOD_PROPERTIES = {
@@ -200,8 +216,9 @@ Hoje é {today}. Categorias: {categories}.
 
 Sempre use uma ferramenta antes de responder sobre valores, e copie os valores exatamente como \
 a ferramenta devolveu: nunca calcule, estime ou invente números. Se a ferramenta não encontrar \
-nada, diga isso. Se a pergunta não for sobre as finanças do usuário, diga que você só responde \
-sobre os dados do app."""
+nada, diga isso. Ao citar o período, use o nome que vem no campo "periodo" do resultado \
+(ex.: "nos últimos 3 meses"). Se a pergunta não for sobre as finanças do usuário, diga que \
+você só responde sobre os dados do app."""
 
 
 class Toolbox:
@@ -212,6 +229,45 @@ class Toolbox:
         self.today = today or date.today()
         self.categories = list(db.scalars(select(Category).order_by(Category.name)))
         self.period_hint = period_from_text(question, self.today) if question else None
+        self.per_month = bool(question and _PER_MONTH.search(simplify(question)))
+
+    def _fix_period(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        fixed = dict(arguments)
+        if self.period_hint:
+            fixed.pop("periodo", None)
+            fixed.pop("mes", None)
+            fixed.update(self.period_hint)
+        # E às vezes põem um período no campo do mês ({"mes": "este_mes"}). Com o qwen2.5:3b, isso
+        # virava erro e o modelo desistia em vez de corrigir: o backend entende sozinho.
+        if fixed.get("mes") in Period.__args__:
+            fixed.setdefault("periodo", fixed.pop("mes"))
+        return fixed
+
+    def route(self, name: str, arguments: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        """A ferramenta e os argumentos que o backend vai de fato executar."""
+        # Modelos pequenos às vezes mandam campos vazios ou "null" em vez de omitir.
+        cleaned = {k: v for k, v in arguments.items() if v not in (None, "", "null", "None")}
+        if name in ("gastos", "resumo_financeiro"):
+            cleaned = self._fix_period(cleaned)
+        # "Quanto gastei por mês nos últimos 3 meses?": na avaliação, o qwen2.5:3b chamou `gastos`,
+        # que soma o período inteiro, e citou valores que não respondiam à pergunta. Sem filtro e
+        # com um período que termina hoje, a evolução mensal responde exatamente isso.
+        if name == "gastos" and self.per_month:
+            months = self._months_until_today(cleaned)
+            if months and not (cleaned.get("categoria") or cleaned.get("estabelecimento")):
+                return "evolucao_mensal", {"meses": months, "so_despesas": True}
+        return name, cleaned
+
+    def _months_until_today(self, arguments: dict[str, Any]) -> int | None:
+        try:
+            args = PeriodArgs.model_validate(
+                {k: v for k, v in arguments.items() if k in ("periodo", "mes")}
+            )
+        except ValidationError:
+            return None
+        start, end = resolve_period(args.periodo, args.mes, self.today)
+        months = (end.year - start.year) * 12 + end.month - start.month + 1
+        return months if end == self.today and 2 <= months <= 24 else None
 
     def execute(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         handlers = {
@@ -221,17 +277,8 @@ class Toolbox:
         }
         if name not in handlers:
             return {"erro": f"Ferramenta desconhecida: {name}. Use: {', '.join(handlers)}"}
+        name, cleaned = self.route(name, arguments)
         schema, handler = handlers[name]
-        # Modelos pequenos às vezes mandam campos vazios ou "null" em vez de omitir.
-        cleaned = {k: v for k, v in arguments.items() if v not in (None, "", "null", "None")}
-        if self.period_hint and issubclass(schema, PeriodArgs):
-            cleaned.pop("periodo", None)
-            cleaned.pop("mes", None)
-            cleaned.update(self.period_hint)
-        # E às vezes põem um período no campo do mês ({"mes": "este_mes"}). Com o qwen2.5:3b, isso
-        # virava erro e o modelo desistia em vez de corrigir: o backend entende sozinho.
-        if cleaned.get("mes") in Period.__args__:
-            cleaned.setdefault("periodo", cleaned.pop("mes"))
         try:
             args = schema.model_validate(cleaned)
         except ValidationError as exc:
@@ -243,8 +290,9 @@ class Toolbox:
 
     def _period(self, args: PeriodArgs) -> tuple[date, date, str]:
         start, end = resolve_period(args.periodo, args.mes, self.today)
-        label = f"{start:%d/%m/%Y} a {end:%d/%m/%Y}"
-        return start, end, label
+        name = f"{MONTH_NAMES[start.month - 1]} de {start.year}" if args.mes else None
+        name = name or PERIOD_NAMES[args.periodo]
+        return start, end, f"{name} ({start:%d/%m/%Y} a {end:%d/%m/%Y})"
 
     def _resolve_category(self, name: str) -> Category:
         wanted = simplify(name)
@@ -348,6 +396,14 @@ class Toolbox:
         totals = {_add_months(first, i): [0, 0] for i in range(args.meses)}
         for tx_date, amount in rows:
             totals[tx_date.replace(day=1)][0 if amount > 0 else 1] += abs(amount)
+        if args.so_despesas:
+            # Com receitas e saldo no resultado, o qwen2.5:3b citou o saldo de cada mês como se
+            # fosse o gasto: valores reais, que a checagem de fatos não pega, no campo errado.
+            return {
+                "meses": [
+                    {"mes": f"{m:%m/%Y}", "despesas": brl(exp)} for m, (_, exp) in totals.items()
+                ]
+            }
         return {
             "meses": [
                 {

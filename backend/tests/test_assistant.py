@@ -98,7 +98,7 @@ def test_gastos_por_estabelecimento(toolbox):
 def test_gastos_por_categoria_sem_acento_e_mes_especifico(toolbox):
     result = toolbox.execute("gastos", {"categoria": "alimentacao", "mes": "2026-09"})
     assert result["total_gasto"] == "R$ 50,00"
-    assert result["periodo"] == "01/09/2026 a 30/09/2026"
+    assert result["periodo"] == "setembro de 2026 (01/09/2026 a 30/09/2026)"
 
 
 def test_periodo_no_campo_do_mes_e_entendido(toolbox):
@@ -107,7 +107,7 @@ def test_periodo_no_campo_do_mes_e_entendido(toolbox):
     assert "erro" not in junto
     assert junto["periodo"] == toolbox.execute("gastos", {"periodo": "ultimos_3_meses"})["periodo"]
     sozinho = toolbox.execute("gastos", {"mes": "mes_passado"})
-    assert sozinho["periodo"] == "01/09/2026 a 30/09/2026"
+    assert sozinho["periodo"] == "mês passado (01/09/2026 a 30/09/2026)"
 
 
 def test_nome_de_loja_como_categoria_vira_busca_por_estabelecimento(toolbox):
@@ -160,9 +160,44 @@ def test_periodo_da_pergunta_tem_prioridade_sobre_o_da_llm(db, toolbox):
     com_pergunta = Toolbox(db, today=TODAY, question="Quanto gastei de Uber nos últimos 3 meses?")
     result = com_pergunta.execute("gastos", llm_args)
     assert result["total_gasto"] == "R$ 43,00"
-    assert result["periodo"] == "01/08/2026 a 20/10/2026"
+    assert result["periodo"] == "últimos 3 meses (01/08/2026 a 20/10/2026)"
     # evolucao_mensal não tem período: os argumentos dela não mudam.
     assert len(com_pergunta.execute("evolucao_mensal", {"meses": 2})["meses"]) == 2
+
+
+@pytest.mark.parametrize(
+    ("question", "args", "expected"),
+    [
+        # Visto com o qwen2.5:3b real: "por mês" respondido com o total do período.
+        ("Quanto gastei por mês nos últimos 3 meses?", {"periodo": "ultimos_3_meses"},
+         ("evolucao_mensal", {"meses": 3, "so_despesas": True})),
+        ("Gastos mês a mês este ano", {"periodo": "este_ano"},
+         ("evolucao_mensal", {"meses": 10, "so_despesas": True})),
+        # Com filtro, a evolução mensal não serve (ela não filtra): segue em `gastos`.
+        ("Quanto gastei de Uber por mês nos últimos 3 meses?",
+         {"periodo": "ultimos_3_meses", "estabelecimento": "uber"}, ("gastos", None)),
+        # Um mês só, ou um período que não termina hoje: também segue em `gastos`.
+        ("Quanto gastei por mês este mês?", {"periodo": "este_mes"}, ("gastos", None)),
+        ("Quanto gastei por mês no ano passado?", {"periodo": "ano_passado"}, ("gastos", None)),
+        # Sem "por mês" na pergunta, nada muda.
+        ("Quanto gastei nos últimos 3 meses?", {"periodo": "ultimos_3_meses"}, ("gastos", None)),
+    ],
+)  # fmt: skip
+def test_pergunta_por_mes_vira_evolucao_mensal(db, toolbox, question, args, expected):
+    routed = Toolbox(db, today=TODAY, question=question).route("gastos", args)
+    assert routed[0] == expected[0]
+    if expected[1] is not None:
+        assert routed[1] == expected[1]
+
+
+def test_pergunta_por_mes_devolve_os_meses(db, toolbox):
+    por_mes = Toolbox(db, today=TODAY, question="Quanto gastei por mês nos últimos 3 meses?")
+    result = por_mes.execute("gastos", {"periodo": "ultimos_3_meses"})
+    assert [m["despesas"] for m in result["meses"]] == ["R$ 0,00", "R$ 75,00", "R$ 2.016,00"]
+    # Visto com o qwen2.5:3b real: com o saldo no resultado, ele o citou como gasto do mês.
+    assert all(set(m) == {"mes", "despesas"} for m in result["meses"])
+    # Pedida pelo modelo, a evolução mensal continua completa.
+    assert "saldo" in toolbox.execute("evolucao_mensal", {"meses": 2})["meses"][0]
 
 
 def test_resumo_financeiro(toolbox):

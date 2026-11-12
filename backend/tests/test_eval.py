@@ -106,6 +106,18 @@ def test_avaliacao_do_assistente_conta_a_correcao_de_periodo_do_backend():
     assert r.ok, r
 
 
+def test_avaliacao_do_assistente_conta_a_ferramenta_que_o_backend_executou():
+    por_mes = _pergunta(
+        pergunta="Quanto gastei por mês nos últimos 3 meses?",
+        chamada={"ferramenta": "evolucao_mensal", "argumentos": {"meses": 3}},
+        valor="meses.2.despesas",
+        proibido=[],
+    )
+    modelo = ("gastos", {"periodo": "ultimos_3_meses"})  # o app executa evolucao_mensal
+    r = _avaliar(por_mes, modelo, lambda res: f"Em novembro: {res['meses'][2]['despesas']}.")
+    assert r.ok, r
+
+
 def test_avaliacao_do_assistente_pega_frase_errada_e_valor_inventado():
     r = _avaliar(_pergunta(), UBER_3M, lambda res: "No último mês, você gastou R$ 999,99.")
     assert r.consulta_ok

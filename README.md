@@ -240,39 +240,48 @@ cd backend
 python -m evals.run_assistant_eval --provider ollama --model qwen2.5:3b
 ```
 
-| `qwen2.5:3b` | Resultado |
-|---|---|
-| `qwen2.5:3b` | Primeira medição | Depois da correção da Netflix |
-|---|---|---|
-| **Respostas totalmente certas** | **75%** (9 de 12) | **75%** (9 de 12) |
-| Consulta certa | 83% | 92% |
-| Valor certo na resposta | 83% | 92% |
-| Sem valor inventado | 92% | 92% |
-| Sem frase errada sobre o período | 92% | 83% |
+Cada correção foi medida sozinha, com o mesmo modelo e as mesmas perguntas:
 
-Os 3 erros da primeira medição viraram tarefas:
-- **"Netflix nos últimos 3 meses"** (corrigido): o modelo usou "Netflix" como *categoria*, a
-  ferramenta recusou, e ele respondeu "não foram encontrados gastos". Era o erro mais perigoso,
-  porque parecia uma resposta certa. Havia uma segunda causa escondida: o modelo mandava também
+| `qwen2.5:3b` | 1ª medição | + Netflix | + período por extenso | + gasto por mês |
+|---|---|---|---|---|
+| **Respostas totalmente certas** | **75%** | **75%** | **83%** | **100%** |
+| Consulta certa | 83% | 92% | 92% | 100% |
+| Valor certo na resposta | 83% | 92% | 92% | 100% |
+| Sem valor inventado | 92% | 92% | 100% | 100% |
+| Sem frase errada sobre o período | 92% | 83% | 92% | 100% |
+
+Os 3 erros da primeira medição, e o que cada um ensinou:
+
+- **"Netflix nos últimos 3 meses"**: o modelo usou "Netflix" como *categoria*, a ferramenta
+  recusou, e ele respondeu "não foram encontrados gastos". Era o erro mais perigoso, porque
+  parecia uma resposta certa. Havia uma segunda causa escondida: o modelo mandava também
   `"mes": "2026-10"`, e o mês tinha prioridade, então mesmo com o filtro certo a resposta sairia
-  de um mês só. Duas correções no backend, sem mexer no prompt:
+  de um mês só. Correções no backend:
   - nome que não é categoria, mas aparece nas descrições, vira busca por estabelecimento (com um
     aviso no resultado); se não aparece em lugar nenhum, o erro volta para a LLM como antes;
   - quando a pergunta diz o período ("nos últimos 3 meses", "em setembro", "mês passado"), o
     backend tira o período do próprio texto e ignora o do modelo. Se não diz, ou diz dois, quem
     decide é a LLM.
-
-  Agora a consulta e o valor saem certos (R$ 134,70). A pergunta ainda conta como erro porque a
-  resposta diz "no último mês": o mesmo erro de frase do Uber, que ficou para a próxima tarefa.
-- **"Quanto gastei por mês"**: usou `gastos` em vez de `evolucao_mensal` e citou valores que a
-  checagem de fatos marcou.
-- **"Uber nos últimos 3 meses"**: consulta e valor certos, mas escreveu "no último mês".
+- **"Uber nos últimos 3 meses"**: consulta e valor certos, mas a resposta dizia "no último mês".
+  A ferramenta devolvia só as datas ("01/09/2026 a 11/11/2026"); agora devolve também o nome
+  ("últimos 3 meses (01/09/2026 a 11/11/2026)"), e o prompt pede para usá-lo.
+- **"Quanto gastei por mês"**: o modelo usou `gastos`, que soma o período inteiro. Quando a
+  pergunta diz "por mês", "mês a mês" ou "cada mês", e não há filtro, o backend responde com a
+  evolução mensal. A primeira versão dessa correção revelou um erro novo: com receitas, despesas
+  e saldo no resultado, **o modelo citou o saldo de cada mês como se fosse o gasto**. A checagem
+  de fatos não pega esse tipo de erro, porque os valores existem no resultado, só que no campo
+  errado. Agora, nesse caso, a ferramenta devolve só as despesas.
 
 A avaliação refaz cada consulta do modelo como o app a executou, com essas correções; o
 relatório guarda os argumentos que o modelo mandou.
 
-> As perguntas foram escritas por quem desenvolveu o assistente, e não há um conjunto separado
-> só para teste, como existe na categorização: este número é de desenvolvimento.
+> **Os 100% não são a nota do assistente.** As 12 perguntas foram escritas por quem desenvolveu
+> o assistente e usadas para corrigir cada erro acima: é o conjunto de *desenvolvimento*. Para
+> medir de verdade, falta um conjunto separado de perguntas que nunca tenham sido usadas para
+> ajustar nada, como já existe na categorização. Também é uma rodada só: o modelo não é
+> determinístico, e com 12 perguntas cada uma vale 8 pontos. Um critério se mostrou rígido
+> demais: numa rodada, "No último mês você pagou R$ 44,90 (...) nos últimos 3 meses, R$ 134,70"
+> foi marcado como erro de frase, mas a frase estava certa.
 
 ### Lançamento por texto
 
@@ -442,7 +451,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 206 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest          # 214 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
 ruff check .
 
 cd frontend
@@ -507,8 +516,8 @@ frontend/src/
 - [ ] Conjunto de fotos de cupons rotuladas para medir o leitor como já é medida a categorização
 - [x] Avaliação automatizada do assistente (perguntas com respostas esperadas), como já existe para a categorização
 - [x] Assistente: nome de loja usado como categoria ("Netflix") deve virar busca por estabelecimento
-- [ ] Assistente: frase "no último mês" em pergunta de 3 meses
-- [ ] Assistente: "quanto gastei por mês" deve usar a evolução mensal
+- [x] Assistente: frase "no último mês" em pergunta de 3 meses
+- [x] Assistente: "quanto gastei por mês" deve usar a evolução mensal
 - [ ] Conjunto separado de perguntas de teste para o assistente
 - [x] Segundo conjunto rotulado, separado, só para teste (evita ajustar o prompt para a prova)
 - [ ] Aumentar o conjunto de teste e pedir a outra pessoa para rotular parte dele

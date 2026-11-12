@@ -122,7 +122,7 @@ def evaluate(db: Session, provider: LLMProvider, question: Question) -> Result:
         # tirado da pergunta). Os argumentos guardados no relatório são os que o modelo mandou.
         as_in_app = Toolbox(db, today=TODAY, question=question.pergunta)
         consulta_ok = any(
-            c["ferramenta"] == question.chamada["ferramenta"]
+            as_in_app.route(c["ferramenta"], c["argumentos"])[0] == question.chamada["ferramenta"]
             and lookup(as_in_app.execute(c["ferramenta"], c["argumentos"]), question.valor)
             == expected
             for c in calls
