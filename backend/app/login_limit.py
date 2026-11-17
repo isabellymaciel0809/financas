@@ -10,68 +10,77 @@ O limite por IP é bem mais alto porque, no Docker ou atrás de um proxy, todo m
 com o mesmo IP: um limite baixo ali deixaria um erro de digitação de uma pessoa travar as outras.
 Usuários que não existem também contam, então o bloqueio não revela quem existe.
 
-Limitação consciente: o estado fica em memória, como as filas (app/services/background.py). Vale
-para um único processo do servidor; com vários, o caminho seria guardar as tentativas no Redis.
+Os erros ficam no banco (tabela `login_failures`). Antes ficavam na memória do processo: com
+vários processos do servidor, cada um contava os seus, e um reinício zerava tudo. No banco, o
+limite vale para todos e sobrevive a reinícios, sem precisar de outro serviço (como o Redis).
+
+Cada operação usa uma sessão própria e grava na hora: o erro precisa ficar registrado mesmo
+quando a requisição termina com 401, sem commit. Dois processos que recebem a última tentativa
+ao mesmo tempo podem deixar passar uma a mais; para frear força bruta, isso não muda nada.
 """
 
 import math
-import threading
-import time
-from collections import deque
 from collections.abc import Callable
+from datetime import datetime, timedelta
+
+from sqlalchemy import delete, select
+from sqlalchemy.orm import Session
+
+from app.database import SessionLocal
+from app.models import LoginFailure
 
 USER_LIMIT = 5
 IP_LIMIT = 30
-WINDOW_SECONDS = 15 * 60
-MAX_KEYS = 10_000  # acima disso, limpa as chaves vencidas (memória não cresce sem limite)
+WINDOW = timedelta(minutes=15)
 
 
 class LoginLimiter:
-    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self,
+        session_factory: Callable[[], Session] = SessionLocal,
+        clock: Callable[[], datetime] = datetime.now,
+    ) -> None:
+        self.session_factory = session_factory
         self.clock = clock
-        self._failures: dict[str, deque[float]] = {}
-        self._lock = threading.Lock()
 
     @staticmethod
-    def _keys(username: str, ip: str) -> list[tuple[str, int]]:
-        return [(f"usuario:{username.strip().casefold()}", USER_LIMIT), (f"ip:{ip}", IP_LIMIT)]
+    def _user_key(username: str) -> str:
+        return f"usuario:{username.strip().casefold()}"[:120]
 
-    def _recent(self, key: str, now: float) -> deque[float]:
-        failures = self._failures.get(key, deque())
-        while failures and failures[0] <= now - WINDOW_SECONDS:
-            failures.popleft()
-        if not failures:
-            self._failures.pop(key, None)
-        return failures
+    def _keys(self, username: str, ip: str) -> list[tuple[str, int]]:
+        return [(self._user_key(username), USER_LIMIT), (f"ip:{ip}"[:120], IP_LIMIT)]
 
     def retry_after(self, username: str, ip: str) -> int:
         """Segundos até poder tentar de novo; 0 se pode tentar agora."""
         now = self.clock()
         wait = 0.0
-        with self._lock:
+        with self.session_factory() as db:
             for key, limit in self._keys(username, ip):
-                failures = self._recent(key, now)
-                if len(failures) >= limit:
-                    wait = max(wait, failures[-limit] + WINDOW_SECONDS - now)
+                # O erro mais antigo entre os `limit` mais recentes da janela: quando ele sair da
+                # janela, sobram menos de `limit` e a pessoa pode tentar de novo.
+                recent = db.scalars(
+                    select(LoginFailure.failed_at)
+                    .where(LoginFailure.key == key, LoginFailure.failed_at > now - WINDOW)
+                    .order_by(LoginFailure.failed_at.desc())
+                    .limit(limit)
+                ).all()
+                if len(recent) >= limit:
+                    wait = max(wait, (recent[-1] + WINDOW - now).total_seconds())
         return math.ceil(wait)
 
     def failed(self, username: str, ip: str) -> None:
         now = self.clock()
-        with self._lock:
-            if len(self._failures) > MAX_KEYS:
-                for key in list(self._failures):
-                    self._recent(key, now)
-            for key, _ in self._keys(username, ip):
-                self._failures.setdefault(key, deque()).append(now)
+        with self.session_factory() as db:
+            db.add_all(LoginFailure(key=key, failed_at=now) for key, _ in self._keys(username, ip))
+            # Erros fora da janela não contam mais: a tabela não cresce sem limite.
+            db.execute(delete(LoginFailure).where(LoginFailure.failed_at <= now - WINDOW))
+            db.commit()
 
     def succeeded(self, username: str) -> None:
         """Acertou a senha: zera os erros do usuário (os do IP continuam contando)."""
-        with self._lock:
-            self._failures.pop(self._keys(username, "")[0][0], None)
-
-    def reset(self) -> None:
-        with self._lock:
-            self._failures.clear()
+        with self.session_factory() as db:
+            db.execute(delete(LoginFailure).where(LoginFailure.key == self._user_key(username)))
+            db.commit()
 
 
 login_limiter = LoginLimiter()

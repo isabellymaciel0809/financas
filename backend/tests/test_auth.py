@@ -1,6 +1,9 @@
 """Login: primeiro acesso, sessão por cookie, HTTP Basic (Power BI) e rotas protegidas."""
 
 import base64
+from datetime import datetime, timedelta
+
+from sqlalchemy import select
 
 from app.auth import hash_password, verify_password
 
@@ -145,7 +148,7 @@ def test_so_quem_administra_cadastra_pessoas(anon_client):
 
 class _Relogio:
     def __init__(self):
-        self.agora = 1000.0
+        self.agora = datetime(2026, 11, 17, 10, 0)
 
     def __call__(self):
         return self.agora
@@ -171,7 +174,7 @@ def test_cinco_erros_bloqueiam_o_usuario_por_15_minutos(anon_client, monkeypatch
     assert bloqueado.headers["retry-after"] == "900"
     assert "15 minuto" in bloqueado.json()["detail"]
 
-    relogio.agora += 15 * 60
+    relogio.agora += timedelta(minutes=15)
     assert _login(anon_client, password="senha-forte-1").status_code == 200
 
 
@@ -216,3 +219,35 @@ def test_power_bi_tambem_tem_limite(anon_client):
         assert errado.status_code == 401
     certo = anon_client.get("/api/bi/lancamentos.json", headers=_basic("isa", "senha-forte-1"))
     assert certo.status_code == 429
+
+
+def test_limite_vale_para_todos_os_processos_e_depois_de_reiniciar(anon_client, db):
+    """Antes, cada processo do servidor contava os próprios erros, e um reinício zerava tudo.
+
+    Dois limitadores separados fazem o papel de dois processos (ou de antes e depois de um
+    reinício): o que um registra, o outro vê, porque o registro fica no banco.
+    """
+    from app.login_limit import LoginLimiter
+
+    relogio = _Relogio()
+    processo_a, processo_b = LoginLimiter(clock=relogio), LoginLimiter(clock=relogio)
+    for _ in range(5):
+        processo_a.failed("isa", "10.0.0.1")
+    assert processo_b.retry_after("isa", "10.0.0.2") == 900  # outro IP: o usuário é o mesmo
+    assert processo_b.retry_after("ana", "10.0.0.2") == 0
+
+    processo_b.succeeded("isa")
+    assert processo_a.retry_after("isa", "10.0.0.1") == 0
+
+
+def test_erros_antigos_sao_apagados(anon_client, db):
+    from app.login_limit import LoginLimiter
+    from app.models import LoginFailure
+
+    relogio = _Relogio()
+    limiter = LoginLimiter(clock=relogio)
+    limiter.failed("isa", "10.0.0.1")
+    relogio.agora += timedelta(minutes=16)
+    limiter.failed("ana", "10.0.0.2")
+    # Só sobram os da Ana: os da Isa saíram da janela e foram apagados no registro seguinte.
+    assert {f.key for f in db.scalars(select(LoginFailure))} == {"usuario:ana", "ip:10.0.0.2"}

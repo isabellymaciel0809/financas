@@ -9,6 +9,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -95,6 +96,18 @@ class UserSession(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime)
 
     user: Mapped[User] = relationship(lazy="joined")
+
+
+class LoginFailure(Base):
+    """Uma senha errada (app/login_limit.py). No banco, o limite vale para todos os processos
+    do servidor e continua valendo depois de um reinício."""
+
+    __tablename__ = "login_failures"
+    __table_args__ = (Index("ix_login_failures_key_failed_at", "key", "failed_at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(120))  # "usuario:ana" ou "ip:10.0.0.1"
+    failed_at: Mapped[datetime] = mapped_column(DateTime, index=True)
 
 
 class ImportBatch(Base):

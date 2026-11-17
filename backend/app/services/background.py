@@ -111,7 +111,7 @@ class CategorizationJob:
         return JobStatus(running, pending, last.categorized, last.error)
 
     def reset(self) -> None:
-        """Esquece os resultados (os testes começam do zero, como o `login_limiter`)."""
+        """Esquece os resultados (cada teste começa do zero)."""
         self._results.clear()
 
 

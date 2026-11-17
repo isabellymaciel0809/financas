@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.auth import require_user  # noqa: E402
 from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.deps import get_llm_provider  # noqa: E402
-from app.login_limit import login_limiter  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
 from app.services.background import categorization_job  # noqa: E402
@@ -103,12 +102,13 @@ def db():
 
 
 @pytest.fixture(autouse=True)
-def _estado_em_memoria_zerado():
-    """O limite de tentativas e o resultado da IA ficam em memória: cada teste começa do zero."""
-    login_limiter.reset()
+def _resultado_da_ia_zerado():
+    """O resultado da IA em segundo plano fica em memória: cada teste começa do zero.
+
+    As tentativas de login ficam no banco, que a fixture `db` recria a cada teste.
+    """
     categorization_job.reset()
     yield
-    login_limiter.reset()
     categorization_job.reset()
 
 
