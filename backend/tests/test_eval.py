@@ -131,7 +131,13 @@ def test_pergunta_fora_do_escopo_nao_pode_citar_valores():
 
 
 def test_perguntas_do_assistente_tem_valor_esperado():
-    from evals.run_assistant_eval import EVAL_DIR, Toolbox, demo_db, load_questions, lookup
+    from evals.run_assistant_eval import (
+        EVAL_DIR,
+        Toolbox,
+        demo_db,
+        expected_value,
+        load_questions,
+    )
 
     toolbox = Toolbox(demo_db(), today=date(2026, 11, 11))
     dev = load_questions(EVAL_DIR / "assistente.json")
@@ -140,9 +146,10 @@ def test_perguntas_do_assistente_tem_valor_esperado():
     assert not {q.pergunta for q in dev} & {q.pergunta for q in teste}
     for q in dev + teste:
         if q.chamada:
-            result = toolbox.execute(q.chamada["ferramenta"], q.chamada["argumentos"])
-            assert "erro" not in result, (q.pergunta, result)
-            assert lookup(result, q.valor), q.pergunta
+            calls = q.chamada if isinstance(q.chamada, list) else [q.chamada]
+            results = [toolbox.execute(c["ferramenta"], c["argumentos"]) for c in calls]
+            assert not [r for r in results if "erro" in r], (q.pergunta, results)
+            assert expected_value(results, q), q.pergunta
 
 
 def test_lookup_acha_item_da_lista_pelo_conteudo():
@@ -161,3 +168,28 @@ def test_pergunta_sem_dados_pode_citar_zero():
     consulta = ("gastos", {"periodo": "tudo", "estabelecimento": "petshop"})  # devolve R$ 0,00
     assert _avaliar(sem_dados, consulta, lambda res: f"Você gastou {res['total_gasto']}.").ok
     assert not _avaliar(sem_dados, consulta, lambda res: "Você gastou R$ 35,00 com petshop.").ok
+
+
+def test_avaliacao_do_assistente_soma_varias_consultas():
+    # "Últimos 2 meses" não tem período pronto: o esperado é a soma de outubro e novembro, e
+    # uma consulta de um mês só não basta.
+    dois_meses = _pergunta(
+        pergunta="Quanto gastei com Uber nos últimos 2 meses?",
+        chamada=[
+            {"ferramenta": "gastos", "argumentos": {"mes": m, "estabelecimento": "uber"}}
+            for m in ("2026-10", "2026-11")
+        ],
+        combinar="soma",
+    )
+    so_outubro = ("gastos", {"mes": "2026-10", "estabelecimento": "uber"})
+    r = _avaliar(dois_meses, so_outubro, lambda res: f"Você gastou {res['total_gasto']}.")
+    assert r.esperado and not r.consulta_ok and not r.valor_ok
+
+
+def test_avaliacao_do_assistente_calcula_media():
+    from evals.run_assistant_eval import Question, cents, expected_value
+
+    media = Question("média?", None, valor="meses.*.despesas", combinar="media")
+    resultado = {"meses": [{"despesas": "R$ 1.000,00"}, {"despesas": "R$ 2.000,01"}]}
+    assert expected_value([resultado], media) == "R$ 1.500,00"
+    assert cents("-R$ 1.234,56") == -123456

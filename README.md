@@ -279,24 +279,28 @@ relatório guarda os argumentos que o modelo mandou.
 > desenvolveu o assistente e usadas para corrigir cada erro: é o conjunto de *desenvolvimento*.
 
 **Conjunto de teste** ([`evals/assistente-teste.json`](backend/evals/assistente-teste.json)):
-9 perguntas escritas pela dona do projeto, do jeito que ela digitaria no celular ("qto tive de
+12 perguntas escritas pela dona do projeto, do jeito que ela digitaria no celular ("qto tive de
 receita esse mes..."), sem ver as de desenvolvimento, e rodadas **uma vez**, depois de todas as
 correções. Elas nunca são usadas para ajustar o assistente; se uma correção nascer de um erro
 delas, a pergunta passa para o conjunto de desenvolvimento.
+
+Algumas perguntas não têm um valor pronto em nenhuma ferramenta ("últimos 2 meses", "média de
+setembro a novembro"). Para elas, o esperado é a **soma ou a média de várias consultas**, e a
+consulta do modelo conta como certa se trouxer o valor sozinha ou junto com as outras que ele fez.
 
 ```bash
 python -m evals.run_assistant_eval --provider ollama --model qwen2.5:3b --conjunto teste
 ```
 
-| `qwen2.5:3b` | Desenvolvimento (12) | **Teste (9)** |
+| `qwen2.5:3b` | Desenvolvimento (12) | **Teste (12)** |
 |---|---|---|
-| **Respostas totalmente certas** | 100% | **67%** (6 de 9) |
-| Consulta certa | 100% | 67% |
-| Valor certo na resposta | 100% | 67% |
+| **Respostas totalmente certas** | 100% | **58%** (7 de 12) |
+| Consulta certa | 100% | 58% |
+| Valor certo na resposta | 100% | 58% |
 | Sem valor inventado | 100% | 100% |
 | Sem frase errada sobre o período | 100% | 100% |
 
-A diferença entre 100% e 67% é o motivo de existir um conjunto de teste. Os 3 erros:
+A diferença entre 100% e 58% é o motivo de existir um conjunto de teste. Os 5 erros:
 - **Comparação entre meses (2 de 2 erradas)**: "em qual mês gastei mais, comparado com
   novembro?" e "quais gastos foram a mais que no mês passado?". O modelo consultou um mês só.
   Nenhuma ferramenta compara períodos, e o modelo de 3B não faz duas consultas para comparar:
@@ -304,9 +308,15 @@ A diferença entre 100% e 67% é o motivo de existir um conjunto de teste. Os 3 
 - **"Qual foi a coisa mais cara que comprei esse mês?"**: o modelo entendeu "comprei" como a
   categoria *Compras* e respondeu a Amazon (R$ 1.299,00), não o aluguel (R$ 1.800,00). O rótulo
   é discutível (ninguém "compra" o aluguel), mas não foi trocado depois de ver o resultado.
+- **"Quanto gastei com Uber nos últimos 2 meses?"**: o modelo inventou o período
+  `ultimos_2_meses`, que não existe, e respondeu com a mensagem de erro em vez de consultar mês a
+  mês. "Últimos 3 meses", que existe pronto, deu certo.
+- **"Média de gasto mensal de setembro até novembro"**: o modelo pediu o resumo de um mês só,
+  disse que não havia setembro e deu como média o gasto de um mês. A checagem de fatos não pega
+  esse erro, porque o valor citado existe no resultado: só a métrica de valor certo mostra.
 
 Não houve nenhum valor inventado nem frase errada sobre o período. O petshop, que não existe no
-extrato, foi respondido sem inventar valor. Com 9 perguntas, cada uma vale 11 pontos: o número
+extrato, foi respondido sem inventar valor. Com 12 perguntas, cada uma vale 8 pontos: o número
 é uma indicação, não uma medida precisa.
 
 ### Lançamento por texto
@@ -544,7 +554,7 @@ frontend/src/
 - [x] Assistente: nome de loja usado como categoria ("Netflix") deve virar busca por estabelecimento
 - [x] Assistente: frase "no último mês" em pergunta de 3 meses
 - [x] Assistente: "quanto gastei por mês" deve usar a evolução mensal
-- [x] Conjunto separado de perguntas de teste para o assistente (67% com `qwen2.5:3b`)
+- [x] Conjunto separado de perguntas de teste para o assistente (58% com `qwen2.5:3b`)
 - [ ] Assistente: comparar períodos ("gastei mais que no mês passado?"), o erro do conjunto de teste
 - [x] Segundo conjunto rotulado, separado, só para teste (evita ajustar o prompt para a prova)
 - [ ] Aumentar o conjunto de teste e pedir a outra pessoa para rotular parte dele

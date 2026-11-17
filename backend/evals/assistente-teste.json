@@ -42,5 +42,27 @@
   {
     "pergunta": "qto gastei de petshop?",
     "chamada": null
+  },
+  {
+    "pergunta": "qual é a media de gasto mensal a partir de setembro até novembro",
+    "chamada": {"ferramenta": "evolucao_mensal", "argumentos": {"meses": 3}},
+    "valor": "meses.*.despesas",
+    "combinar": "media"
+  },
+  {
+    "pergunta": "quanto eu gastei com uber nos ultimos 2 meses?",
+    "chamada": [
+      {"ferramenta": "gastos", "argumentos": {"mes": "2026-10", "estabelecimento": "uber"}},
+      {"ferramenta": "gastos", "argumentos": {"mes": "2026-11", "estabelecimento": "uber"}}
+    ],
+    "valor": "total_gasto",
+    "combinar": "soma",
+    "proibido": ["3 meses", "6 meses", "último mês"]
+  },
+  {
+    "pergunta": "quanto eu gastei com lazer nos ultimos 3 meses meses?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "ultimos_3_meses", "categoria": "Lazer"}},
+    "valor": "total_gasto",
+    "proibido": ["2 meses", "6 meses", "último mês"]
   }
 ]

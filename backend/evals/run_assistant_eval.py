@@ -25,13 +25,13 @@ import time
 from dataclasses import asdict, dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings
 from app.database import Base, make_engine
-from app.services.assistant import Toolbox, ask
+from app.services.assistant import Toolbox, ask, brl
 from app.services.categorizer.llm import LLMError, LLMProvider, build_provider
 from app.services.demo import build_demo_csv
 from app.services.ingest import import_statement, seed_categories
@@ -52,11 +52,17 @@ DATASETS = {
 @dataclass
 class Question:
     pergunta: str
-    chamada: dict[str, Any] | None  # None: pergunta fora do escopo, não deve citar valores
+    # None: pergunta fora do escopo, não deve citar valores. Uma lista: o esperado sai de mais
+    # de uma consulta, juntadas por `combinar`.
+    chamada: dict[str, Any] | list[dict[str, Any]] | None
     valor: str | None = (
         None  # caminho no resultado da ferramenta: "total_gasto", "meses.2.despesas"
     )
     proibido: list[str] = field(default_factory=list)
+    # Para perguntas que nenhuma ferramenta responde com um valor pronto ("últimos 2 meses",
+    # "média por mês"): soma ou média dos valores achados em `valor`, que pode usar "*" para
+    # pegar todos os itens de uma lista ("meses.*.despesas").
+    combinar: Literal["soma", "media"] | None = None
 
 
 @dataclass
@@ -110,6 +116,39 @@ def lookup(result: dict[str, Any], path: str) -> Any:
     return value
 
 
+def lookup_all(result: dict[str, Any], path: str) -> list[Any]:
+    """Como `lookup`, mas "*" pega todos os itens de uma lista: "meses.*.despesas"."""
+    head, star, tail = path.partition(".*")
+    if not star:
+        value = lookup(result, path)
+        return [] if value is None else [value]
+    items = lookup(result, head)
+    if not isinstance(items, list):
+        return []
+    rest = tail.removeprefix(".")
+    return [v for item in items for v in (lookup_all(item, rest) if rest else [item])]
+
+
+def cents(value: Any) -> int | None:
+    """Valor em centavos: "R$ 1.234,56" vira 123456."""
+    found = MONEY.search(str(value))
+    if not found:
+        return None
+    number = int(found.group().replace(".", "").replace(",", ""))
+    return -number if "-" in str(value) else number
+
+
+def expected_value(results: list[dict[str, Any]], question: Question) -> Any:
+    """O valor que responde à pergunta, tirado dos resultados das ferramentas."""
+    if question.combinar is None:
+        return lookup(results[0], question.valor) if results else None
+    values = [cents(v) for r in results for v in lookup_all(r, question.valor)]
+    if not values or None in values:
+        return None
+    total = sum(values)
+    return brl(total if question.combinar == "soma" else round(total / len(values)))
+
+
 def money_in(text: str) -> set[str]:
     """Valores em reais citados no texto, sem o "R$" ("R$1.234,56" e "1.234,56 reais" batem)."""
     return set(MONEY.findall(text))
@@ -118,9 +157,13 @@ def money_in(text: str) -> set[str]:
 def evaluate(db: Session, provider: LLMProvider, question: Question) -> Result:
     toolbox = Toolbox(db, today=TODAY)
     expected = None
-    if question.chamada is not None:
-        call = question.chamada
-        expected = lookup(toolbox.execute(call["ferramenta"], call["argumentos"]), question.valor)
+    expected_calls = question.chamada
+    if isinstance(expected_calls, dict):
+        expected_calls = [expected_calls]
+    if expected_calls:
+        expected = expected_value(
+            [toolbox.execute(c["ferramenta"], c["argumentos"]) for c in expected_calls], question
+        )
 
     started = time.perf_counter()
     try:
@@ -133,18 +176,24 @@ def evaluate(db: Session, provider: LLMProvider, question: Question) -> Result:
 
     text = answer.result.answer
     calls = [{"ferramenta": c.name, "argumentos": c.arguments} for c in answer.result.tool_calls]
-    if question.chamada is None:
+    if not expected_calls:
         # Fora do escopo ou sem dados: não pode citar valores ("R$ 0,00" pode).
         consulta_ok = valor_ok = not (money_in(text) - {"0,00"})
     else:
         # Refaz cada chamada como o app a executou, com as correções do backend (ex.: o período
         # tirado da pergunta). Os argumentos guardados no relatório são os que o modelo mandou.
         as_in_app = Toolbox(db, today=TODAY, question=question.pergunta)
-        consulta_ok = any(
-            as_in_app.route(c["ferramenta"], c["argumentos"])[0] == question.chamada["ferramenta"]
-            and lookup(as_in_app.execute(c["ferramenta"], c["argumentos"]), question.valor)
-            == expected
+        tools = {c["ferramenta"] for c in expected_calls}
+        executed = [
+            as_in_app.execute(c["ferramenta"], c["argumentos"])
             for c in calls
+            if as_in_app.route(c["ferramenta"], c["argumentos"])[0] in tools
+        ]
+        # Certa se uma consulta sozinha já traz o valor ou, quando o esperado junta várias
+        # (ex.: um mês de cada vez), se as consultas do modelo juntas trazem.
+        consulta_ok = expected is not None and (
+            any(expected_value([r], question) == expected for r in executed)
+            or (question.combinar is not None and expected_value(executed, question) == expected)
         )
         valor_ok = expected is not None and money_in(str(expected)) <= money_in(text)
     lowered = text.casefold()

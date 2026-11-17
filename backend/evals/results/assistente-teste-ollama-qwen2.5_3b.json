@@ -1,12 +1,12 @@
 {
   "summary": {
-    "total": 9,
-    "acerto": 0.667,
-    "consulta_certa": 0.667,
-    "valor_na_resposta": 0.667,
+    "total": 12,
+    "acerto": 0.583,
+    "consulta_certa": 0.583,
+    "valor_na_resposta": 0.583,
     "sem_valor_inventado": 1.0,
     "sem_frase_proibida": 1.0,
-    "segundos_por_pergunta": 26.5
+    "segundos_por_pergunta": 37.3
   },
   "results": [
     {
@@ -27,7 +27,7 @@
       "valor_ok": false,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 66.0,
+      "segundos": 100.2,
       "erro": null
     },
     {
@@ -47,7 +47,7 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 20.1,
+      "segundos": 23.7,
       "erro": null
     },
     {
@@ -67,7 +67,7 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 24.2,
+      "segundos": 33.4,
       "erro": null
     },
     {
@@ -87,7 +87,7 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 14.9,
+      "segundos": 19.2,
       "erro": null
     },
     {
@@ -107,7 +107,7 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 13.2,
+      "segundos": 15.6,
       "erro": null
     },
     {
@@ -128,7 +128,7 @@
       "valor_ok": false,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 31.8,
+      "segundos": 46.6,
       "erro": null
     },
     {
@@ -139,8 +139,8 @@
         {
           "ferramenta": "resumo_financeiro",
           "argumentos": {
-            "mes": "2026-11",
-            "periodo": "este_mes"
+            "periodo": "este_mes",
+            "mes": "2026-11"
           }
         }
       ],
@@ -148,7 +148,7 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 18.3,
+      "segundos": 33.1,
       "erro": null
     },
     {
@@ -159,11 +159,11 @@
         {
           "ferramenta": "gastos",
           "argumentos": {
+            "mes": "2026-10",
+            "categoria": "",
             "estabelecimento": "",
             "limite": 1,
-            "periodo": "mes_passado",
-            "mes": "2026-10",
-            "categoria": ""
+            "periodo": "mes_passado"
           }
         }
       ],
@@ -171,7 +171,7 @@
       "valor_ok": false,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 30.7,
+      "segundos": 50.8,
       "erro": null
     },
     {
@@ -191,7 +191,68 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 19.2,
+      "segundos": 18.3,
+      "erro": null
+    },
+    {
+      "pergunta": "qual é a media de gasto mensal a partir de setembro até novembro",
+      "resposta": "Para calcular a média mensal de gastos entre setembro e novembro, precisamos primeiro obter os gastos de setembro e outubro. Infelizmente, os dados fornecidos não incluem os gastos de setembro. Podemos apenas analisar os dados de outubro e novembro.\n\nGastos em outubro: R$ 4.555,68\nGastos em novembro: R$ 4.555,68\n\nA média mensal de gastos entre setembro e novembro é de R$ 4.555,68.",
+      "esperado": "R$ 4.087,07",
+      "consultas": [
+        {
+          "ferramenta": "resumo_financeiro",
+          "argumentos": {
+            "periodo": "este_mes",
+            "mes": "2026-10",
+            "meses": 3
+          }
+        }
+      ],
+      "consulta_ok": false,
+      "valor_ok": false,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 38.0,
+      "erro": null
+    },
+    {
+      "pergunta": "quanto eu gastei com uber nos ultimos 2 meses?",
+      "resposta": "Desculpe, parece que houve um erro. Você deve fornecer um período válido como 'este_mes', 'mes_passado', 'ultimos_3_meses', 'ultimos_6_meses', 'este_ano' ou 'tudo'. Tente novamente.",
+      "esperado": "R$ 143,63",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "periodo": "ultimos_2_meses",
+            "estabelecimento": "uber"
+          }
+        }
+      ],
+      "consulta_ok": false,
+      "valor_ok": false,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 27.1,
+      "erro": null
+    },
+    {
+      "pergunta": "quanto eu gastei com lazer nos ultimos 3 meses meses?",
+      "resposta": "Nos últimos 3 meses, você gastou R$ 133,52 em lazer. As maiores despesas foram em 15/10/2026 e 06/09/2026, no Cinemark, no valor de R$ 66,81 e R$ 66,71, respectivamente.",
+      "esperado": "R$ 133,52",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "categoria": "Lazer",
+            "periodo": "ultimos_3_meses"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 41.9,
       "erro": null
     }
   ]

@@ -1,12 +1,12 @@
 # Avaliação do assistente: ollama · `qwen2.5:3b` · conjunto de teste
 
-9 perguntas sobre o extrato de exemplo · 26.5 s por pergunta
+12 perguntas sobre o extrato de exemplo · 37.3 s por pergunta
 
 | Métrica | Valor |
 |---|---|
-| **Respostas totalmente certas** | **67%** |
-| Consulta certa | 67% |
-| Valor certo na resposta | 67% |
+| **Respostas totalmente certas** | **58%** |
+| Consulta certa | 58% |
+| Valor certo na resposta | 58% |
 | Sem valor inventado (checagem de fatos) | 100% |
 | Sem frase errada sobre o período | 100% |
 
@@ -23,6 +23,9 @@
 | ✅ | qto tive de receita esse mes contando salario, freela, e pagamento de emprestimos? | R$ 6.500,00 |  |
 | ❌ | quais gastos vc acha q foi a mais que mes passado? | R$ 1.426,47 | consulta, valor |
 | ✅ | qto gastei de petshop? | — |  |
+| ❌ | qual é a media de gasto mensal a partir de setembro até novembro | R$ 4.087,07 | consulta, valor |
+| ❌ | quanto eu gastei com uber nos ultimos 2 meses? | R$ 143,63 | consulta, valor |
+| ✅ | quanto eu gastei com lazer nos ultimos 3 meses meses? | R$ 133,52 |  |
 
 ## Respostas com problema
 
@@ -38,6 +41,16 @@
 
 **quais gastos vc acha q foi a mais que mes passado?**
 
-- Consultas: `[{"ferramenta": "gastos", "argumentos": {"estabelecimento": "", "limite": 1, "periodo": "mes_passado", "mes": "2026-10", "categoria": ""}}]`
+- Consultas: `[{"ferramenta": "gastos", "argumentos": {"mes": "2026-10", "categoria": "", "estabelecimento": "", "limite": 1, "periodo": "mes_passado"}}]`
 - Resposta: No mês passado, o maior gasto foi R$ 1.800,00 em Moradia.
+
+**qual é a media de gasto mensal a partir de setembro até novembro**
+
+- Consultas: `[{"ferramenta": "resumo_financeiro", "argumentos": {"periodo": "este_mes", "mes": "2026-10", "meses": 3}}]`
+- Resposta: Para calcular a média mensal de gastos entre setembro e novembro, precisamos primeiro obter os gastos de setembro e outubro. Infelizmente, os dados fornecidos não incluem os gastos de setembro. Podemos apenas analisar os dados de outubro e novembro.  Gastos em outubro: R$ 4.555,68 Gastos em novembro: R$ 4.555,68  A média mensal de gastos entre setembro e novembro é de R$ 4.555,68.
+
+**quanto eu gastei com uber nos ultimos 2 meses?**
+
+- Consultas: `[{"ferramenta": "gastos", "argumentos": {"periodo": "ultimos_2_meses", "estabelecimento": "uber"}}]`
+- Resposta: Desculpe, parece que houve um erro. Você deve fornecer um período válido como 'este_mes', 'mes_passado', 'ultimos_3_meses', 'ultimos_6_meses', 'este_ano' ou 'tudo'. Tente novamente.
 
