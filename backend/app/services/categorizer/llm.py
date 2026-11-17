@@ -9,6 +9,7 @@ Os provedores compartilham prompts, schemas e definições de ferramentas; só m
 
 import json
 import logging
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -270,11 +271,14 @@ class OllamaProvider:
             for t in tools
         ]
         calls: list[ToolCall] = []
+        names = {t.name for t in tools}
         for _ in range(MAX_TOOL_STEPS):
             message = self._chat(
                 {"messages": conversation, "tools": ollama_tools, "options": {"temperature": 0}}
             )
-            tool_calls = message.get("tool_calls") or []
+            tool_calls = message.get("tool_calls") or text_tool_calls(
+                message.get("content") or "", names
+            )
             if not tool_calls:
                 return ChatResult(answer=(message.get("content") or "").strip(), tool_calls=calls)
 
@@ -304,6 +308,34 @@ class OllamaProvider:
                     }
                 )
         raise LLMError("O assistente fez consultas demais sem chegar a uma resposta.")
+
+
+_FENCE = re.compile(r"^```(?:json)?\s*|\s*```$")
+
+
+def text_tool_calls(content: str, tool_names: set[str]) -> list[dict[str, Any]]:
+    """Chamadas de ferramenta que o modelo escreveu como texto, no formato do Ollama.
+
+    Na comparação de modelos, o qwen2.5:1.5b respondia `{"name": "gastos", "arguments": {...}}`
+    no texto em vez de usar o campo `tool_calls`: nenhuma consulta era feita e o JSON virava a
+    resposta, mesmo com a ferramenta e os filtros certos. Só vale quando a resposta inteira é
+    esse JSON (ou uma lista dele) e o nome é de uma ferramenta oferecida; os argumentos passam
+    pela mesma validação de sempre.
+    """
+    try:
+        parsed = json.loads(_FENCE.sub("", content.strip()))
+    except json.JSONDecodeError:
+        return []
+    items = parsed if isinstance(parsed, list) else [parsed]
+    calls = []
+    for item in items:
+        if not isinstance(item, dict) or item.get("name") not in tool_names:
+            return []
+        arguments = item.get("arguments", item.get("parameters", {}))
+        if not isinstance(arguments, dict):
+            return []
+        calls.append({"function": {"name": item["name"], "arguments": arguments}})
+    return calls
 
 
 # --- Anthropic (Claude) ----------------------------------------------------------------------

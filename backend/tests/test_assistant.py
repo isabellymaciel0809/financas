@@ -363,6 +363,51 @@ def test_loop_de_ferramentas_do_ollama(toolbox):
     assert requests[1]["messages"][-1]["role"] == "tool"
 
 
+def test_chamada_escrita_como_texto_tambem_e_executada(toolbox):
+    """Visto com o qwen2.5:1.5b real: a chamada vinha no texto, não no campo `tool_calls`."""
+    requests: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            content = '{"name": "gastos", "arguments": {"estabelecimento": "ifood"}}'
+        else:
+            total = json.loads(body["messages"][-1]["content"])["total_gasto"]
+            content = f"Você gastou {total} no iFood."
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": content}})
+
+    provider = OllamaProvider(
+        "http://ollama", "qwen2.5:1.5b", client=httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    result = provider.chat_with_tools(
+        "sistema", [{"role": "user", "content": "Quanto gastei no iFood?"}], TOOLS, toolbox.execute
+    )
+    assert result.answer == "Você gastou R$ 78,00 no iFood."
+    assert [c.name for c in result.tool_calls] == ["gastos"]
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ('```json\n{"name": "gastos", "arguments": {"limite": 3}}\n```',
+         [("gastos", {"limite": 3})]),
+        ('[{"name": "gastos", "arguments": {}}, {"name": "evolucao_mensal", "arguments": {}}]',
+         [("gastos", {}), ("evolucao_mensal", {})]),
+        # Ferramenta que não foi oferecida, texto comum ou JSON que não é chamada: é resposta.
+        ('{"name": "apagar_tudo", "arguments": {}}', []),
+        ("Você gastou R$ 10,00.", []),
+        ('{"total": "R$ 10,00"}', []),
+        ('{"name": "gastos", "arguments": "periodo=este_mes"}', []),
+    ],
+)  # fmt: skip
+def test_text_tool_calls(content, expected):
+    from app.services.categorizer.llm import text_tool_calls
+
+    calls = text_tool_calls(content, {t.name for t in TOOLS})
+    assert [(c["function"]["name"], c["function"]["arguments"]) for c in calls] == expected
+
+
 def test_money_values():
     text = "Gastou R$ 1.800,00, depois R$ 2669,12, R$ -45,9 e R$ 7."
     assert money_values(text) == {

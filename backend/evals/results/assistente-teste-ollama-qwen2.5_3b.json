@@ -6,7 +6,7 @@
     "valor_na_resposta": 0.778,
     "sem_valor_inventado": 1.0,
     "sem_frase_proibida": 1.0,
-    "segundos_por_pergunta": 23.7
+    "segundos_por_pergunta": 33.4
   },
   "results": [
     {
@@ -26,7 +26,7 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 18.2,
+      "segundos": 34.7,
       "erro": null
     },
     {
@@ -46,7 +46,7 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 29.9,
+      "segundos": 49.5,
       "erro": null
     },
     {
@@ -66,7 +66,7 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 19.5,
+      "segundos": 33.5,
       "erro": null
     },
     {
@@ -77,8 +77,8 @@
         {
           "ferramenta": "resumo_financeiro",
           "argumentos": {
-            "mes": "2026-11",
-            "periodo": "este_mes"
+            "periodo": "este_mes",
+            "mes": "2026-11"
           }
         }
       ],
@@ -86,7 +86,7 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 19.7,
+      "segundos": 29.4,
       "erro": null
     },
     {
@@ -106,7 +106,7 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 23.9,
+      "segundos": 36.2,
       "erro": null
     },
     {
@@ -126,7 +126,7 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 20.7,
+      "segundos": 25.3,
       "erro": null
     },
     {
@@ -147,7 +147,7 @@
       "valor_ok": false,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 32.4,
+      "segundos": 42.6,
       "erro": null
     },
     {
@@ -167,7 +167,7 @@
       "valor_ok": false,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 20.2,
+      "segundos": 20.1,
       "erro": null
     },
     {

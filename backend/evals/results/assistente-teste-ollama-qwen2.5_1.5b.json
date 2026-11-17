@@ -1,0 +1,196 @@
+{
+  "summary": {
+    "total": 9,
+    "acerto": 0.667,
+    "consulta_certa": 0.667,
+    "valor_na_resposta": 0.667,
+    "sem_valor_inventado": 0.889,
+    "sem_frase_proibida": 1.0,
+    "segundos_por_pergunta": 17.0
+  },
+  "results": [
+    {
+      "pergunta": "Quanto eu paguei de aluguel esse mes?",
+      "resposta": "No período de 1 de novembro de 2026 a 11 de novembro de 2026, você pagou R$ 1.800,00 de aluguel. A maior despesa foi no dia 6 de novembro de 2026, com R$ 1.800,00.",
+      "esperado": "R$ 1.800,00",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "categoria": "Moradia",
+            "mes": "2026-11"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 14.8,
+      "erro": null
+    },
+    {
+      "pergunta": "Qual o meu maior gasto recorrente?",
+      "resposta": "O maior gasto recorrente foi em compras no débito na categoria Alimentação. As duas maiores despesas foram em 4 de novembro e 2 de novembro, respectivamente. A compra no débito na Padaria Bella Vista foi de R$ 12,83 e a no débito na IFD IFOOD foi de R$ 29,68.",
+      "esperado": "R$ 1.800,00",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "categoria": "Alimentação",
+            "limite": 5,
+            "mes": "2026-11"
+          }
+        }
+      ],
+      "consulta_ok": false,
+      "valor_ok": false,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 21.4,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto eu pago de Netflix?",
+      "resposta": "No período de 1º de novembro a 30 de novembro de 2026, você gastou R$ 44,90 com Netflix. A maior despesa foi em 10 de novembro de 2026, com R$ 44,90.",
+      "esperado": "R$ 44,90",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "categoria": "Netflix",
+            "mes": "2026-11"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 21.7,
+      "erro": null
+    },
+    {
+      "pergunta": "Quanto entrou de salario esse mes?",
+      "resposta": "Este mês, você entrou R$ 6.500,00 de salário. Seu saldo é de R$ 2.652,45. Você sobrou dinheiro.",
+      "esperado": "R$ 6.500,00",
+      "consultas": [
+        {
+          "ferramenta": "resumo_financeiro",
+          "argumentos": {
+            "mes": "2026-11",
+            "periodo": "mes_passado"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 10.8,
+      "erro": null
+    },
+    {
+      "pergunta": "qto tive de receita esse mes contando salario, freela, e pagamento de emprestimos?",
+      "resposta": "No período de 1 de novembro de 2026 a 11 de novembro de 2026, você teve uma receita de R$ 6.500,00. As despesas foram de R$ 3.847,55, resultando em um saldo de R$ 2.652,45. Você sobrou dinheiro neste período. A receita principal foi do salário, que foi de R$ 6.500,00.",
+      "esperado": "R$ 6.500,00",
+      "consultas": [
+        {
+          "ferramenta": "resumo_financeiro",
+          "argumentos": {
+            "mes": "2026-11",
+            "periodo": "tudo"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 17.9,
+      "erro": null
+    },
+    {
+      "pergunta": "qto gastei de petshop?",
+      "resposta": "Desculpe, mas não encontrei dados para a categoria 'Petshop' neste período.",
+      "esperado": null,
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "categoria": "Petshop",
+            "mes": "2026-11",
+            "periodo": "ultimos_6_meses"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 9.5,
+      "erro": null
+    },
+    {
+      "pergunta": "qual é a media de gasto mensal a partir de setembro até novembro",
+      "resposta": "A média mensal de gasto entre setembro e novembro de 2026 foi de R$ 1.852,36. As maiores despesas foram: Pagamento de boleto - Aluguel Imobiliária Lar (R$ 1.800,00), compra no débito - LATAM AIRLINES (R$ 890,50), compra no débito - CARREFOUR HIPER (R$ 217,32), Pix enviado - Maria Oliveira Souza (R$ 204,63), e compra no débito - POSTO SHELL (R$ 189,49).",
+      "esperado": "R$ 4.087,07",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "mes": "2026-10",
+            "periodo": "ultimos_3_meses"
+          }
+        }
+      ],
+      "consulta_ok": false,
+      "valor_ok": false,
+      "fatos_ok": false,
+      "frases_ok": true,
+      "segundos": 31.9,
+      "erro": null
+    },
+    {
+      "pergunta": "quanto eu gastei com uber nos ultimos 2 meses?",
+      "resposta": "Desculpe, mas parece que houve um erro na sua pergunta. Você quis dizer \"últimos 2 meses\" ou \"ultimos_2_meses\"? Por favor, tente novamente.",
+      "esperado": "R$ 143,63",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "estabelecimento": "uber",
+            "mes": "ultimos_2_meses"
+          }
+        }
+      ],
+      "consulta_ok": false,
+      "valor_ok": false,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 9.8,
+      "erro": null
+    },
+    {
+      "pergunta": "quanto eu gastei com lazer nos ultimos 3 meses meses?",
+      "resposta": "Nos últimos 3 meses, você gastou R$ 133,52 com lazer. As maiores despesas foram na compra do cinema em 15/10/2026 por R$ 66,81 e em 06/09/2026 por R$ 66,71.",
+      "esperado": "R$ 133,52",
+      "consultas": [
+        {
+          "ferramenta": "gastos",
+          "argumentos": {
+            "categoria": "Lazer",
+            "mes": "ultimos_3_meses",
+            "periodo": "ultimos_3_meses"
+          }
+        }
+      ],
+      "consulta_ok": true,
+      "valor_ok": true,
+      "fatos_ok": true,
+      "frases_ok": true,
+      "segundos": 15.3,
+      "erro": null
+    }
+  ]
+}

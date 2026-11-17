@@ -1,6 +1,6 @@
 # Avaliação do assistente: ollama · `qwen2.5:3b` · conjunto de teste
 
-9 perguntas sobre o extrato de exemplo · 23.7 s por pergunta
+9 perguntas sobre o extrato de exemplo · 33.4 s por pergunta
 
 | Métrica | Valor |
 |---|---|

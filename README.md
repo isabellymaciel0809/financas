@@ -450,6 +450,52 @@ O que a avaliação mostrou:
 > **Limitação:** os dois conjuntos foram rotulados pela mesma pessoa, e o de teste ainda é
 > pequeno (67 transações): uma transação a mais ou a menos muda o acerto em 1,5 ponto.
 
+### Comparação de modelos: por que o `qwen2.5:3b`
+
+As mesmas avaliações, no mesmo notebook (i5 de 8ª geração, 8 GB de RAM, sem GPU), com um modelo
+com metade do tamanho:
+
+| | `qwen2.5:1.5b` | `qwen2.5:3b` |
+|---|---|---|
+| Tamanho | 1,0 GB | 1,9 GB |
+| **Categorização, teste: acerto de ponta a ponta** (só regras: 49,3%) | 65,7% | **82,1%** |
+| Categorização, teste: LLM no que as regras não resolveram | 32,4% | **64,7%** |
+| Categorização, desenvolvimento: acerto de ponta a ponta | 72,5% | **88,2%** |
+| Categorização: tempo por transação que chega à LLM | **3,6 s** | 7,2 s |
+| **Assistente, teste: respostas totalmente certas** | 67% (6 de 9) | **78%** (7 de 9) |
+| Assistente, desenvolvimento | 80% (12 de 15) | **93%** (14 de 15) |
+| Assistente: tempo por pergunta (teste, mesma rodada) | **17 s** | 33 s |
+| Assistente: valor inventado | 1, apontado pela checagem de fatos | nenhum |
+
+Como o 1.5B erra:
+
+- **Categorização**: quase tudo vira "Outros" (22 dos 42 erros no desenvolvimento), o mesmo erro
+  do prompt inicial com o 3B. No teste, ele soma 16 pontos às regras; o 3B soma 33.
+- **Assistente**: a primeira medição deu só 22% no teste e 27% no desenvolvimento, porque ele
+  **escrevia a chamada da ferramenta como texto** (`{"name": "gastos", "arguments": {...}}`) em
+  vez de usar o campo de chamadas do Ollama. Nenhuma consulta era feita e o JSON virava a
+  resposta, embora várias chamadas estivessem certas (`Moradia` deste mês para "quanto paguei de
+  aluguel"). O backend passou a aceitar esse formato: se a resposta inteira é uma chamada para
+  uma ferramenta oferecida, ela é executada, com a mesma validação de sempre. Com isso, o 1.5B
+  subiu para os números da tabela, e o 3B não mudou. A evidência veio do conjunto de
+  desenvolvimento, que tinha o mesmo problema.
+- **Valor inventado**: numa pergunta de média, ele deu "R$ 1.852,36", um valor que não veio de
+  nenhuma consulta. É para isso que existe a checagem de fatos: no app, essa resposta sai com um
+  alerta.
+
+O `qwen2.5:3b` continua o padrão. Na categorização, o 1.5B acerta metade do que o 3B acerta onde
+a LLM decide, e a velocidade a mais pouco importa, porque ela roda em segundo plano. No
+assistente, a diferença é menor (6 contra 7 de 9) e o 1.5B responde na metade do tempo, então
+ele é uma opção para máquinas mais fracas (`OLLAMA_MODEL=qwen2.5:1.5b`), com mais erros e um
+valor inventado a cada nove perguntas. Os tempos variam entre rodadas conforme a carga da
+máquina; por isso a comparação usa a mesma rodada para os dois modelos. Um modelo maior (7B) não foi medido:
+ele ocupa cerca de 4,7 GB, e nesta máquina sobra pouco mais de 1 GB de RAM livre.
+
+```bash
+python -m evals.run_eval --provider ollama --model qwen2.5:1.5b --dataset evals/teste.csv
+python -m evals.run_assistant_eval --provider ollama --model qwen2.5:1.5b --conjunto teste
+```
+
 ## Stack
 
 **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, Pydantic, SQLite (dev) / PostgreSQL (Docker), pytest, Ruff
@@ -530,7 +576,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 243 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest          # 250 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
 pytest --cov    # o mesmo, com a cobertura do código (88%; o CI falha abaixo de 85%)
 ruff check .
 
@@ -602,7 +648,8 @@ frontend/src/
 - [x] Assistente: comparar períodos ("gastei mais que no mês passado?"), o erro do conjunto de teste
 - [x] Segundo conjunto rotulado, separado, só para teste (evita ajustar o prompt para a prova)
 - [ ] Aumentar o conjunto de teste e pedir a outra pessoa para rotular parte dele
-- [ ] Comparar modelos menores (`qwen2.5:1.5b`) e maiores com a mesma avaliação
+- [x] Comparar um modelo menor (`qwen2.5:1.5b`) com a mesma avaliação
+- [ ] Comparar um modelo maior (7B), numa máquina com mais memória
 - [x] Categoria "Cuidados pessoais" (barbearia, salão), medida antes e depois
 - [x] Alertas de gastos fora do padrão no dashboard
 - [ ] Resumo mensal escrito pela IA, a partir dos alertas (com checagem de fatos)
