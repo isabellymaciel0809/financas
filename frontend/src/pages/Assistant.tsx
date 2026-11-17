@@ -13,6 +13,7 @@ const SUGGESTIONS = [
 
 const TOOL_LABELS: Record<string, string> = {
   gastos: "Consulta de gastos",
+  comparar_gastos: "Comparação de gastos",
   resumo_financeiro: "Resumo do período",
   evolucao_mensal: "Evolução mensal",
 };

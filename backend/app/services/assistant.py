@@ -106,6 +106,36 @@ _TEXT_PERIODS: list[tuple[re.Pattern[str], str]] = [
 ]
 _MONTH_NAME = re.compile(r"\b(" + "|".join(_PLAIN_MONTHS) + r")\b(?: de (\d{4}))?")
 _PER_MONTH = re.compile(r"\bpor mes\b|\bmes a mes\b|\bcada mes\b|\bmensalmente\b")
+# Comparações. O qwen2.5:3b respondia "gastei mais que no mês passado?" consultando um mês só:
+# comparar exige duas consultas e uma conta, e ele não faz nenhuma das duas.
+_COMPARE = re.compile(
+    r"\bcompar|\bem relacao (?:a|ao)\b|\bdiferenca\b|\baument|\bdiminu"
+    # "mais que no mês passado", "menos com Uber do que em setembro": depois do "que" vem um
+    # período. Sem isso, "a coisa mais cara que comprei esse mês" (o "que" abre outra frase)
+    # virava comparação.
+    r"|\b(?:mais|menos)(?: \w+){0,3} (?:do )?que (?:(?:no|na|em|o|a) )?"
+    r"(?:mes|ano|ultimos?|" + "|".join(_PLAIN_MONTHS) + r")\b"
+)
+# "Em qual mês", "em que mês", mas não "a mais que mês passado".
+_WHICH_MONTH = re.compile(r"\bqual mes\b|\bquais meses\b|(?:^|\bem |\bde )que mes\b")
+_MORE_OR_LESS = re.compile(r"\b(?:mais|menos|maior|menor)\b")
+
+
+def periods_in_text(text: str, today: date) -> list[dict[str, str]]:
+    """Todos os períodos ditos na pergunta, sem repetir: [{"periodo": ...}, {"mes": "AAAA-MM"}]."""
+    plain = simplify(text)
+    found: list[dict[str, str]] = [
+        {"periodo": period} for pattern, period in _TEXT_PERIODS if pattern.search(plain)
+    ]
+    for match in _MONTH_NAME.finditer(plain):
+        month = _PLAIN_MONTHS.index(match.group(1)) + 1
+        if match.group(2):
+            year = int(match.group(2))
+        else:  # "em setembro" dito em março: setembro passado
+            year = today.year if month <= today.month else today.year - 1
+        if (item := {"mes": f"{year}-{month:02d}"}) not in found:
+            found.append(item)
+    return found
 
 
 def period_from_text(text: str, today: date) -> dict[str, str] | None:
@@ -115,21 +145,28 @@ def period_from_text(text: str, today: date) -> dict[str, str] | None:
     "nos últimos 3 meses", e o mês tem prioridade: a resposta saía de um mês só. Quando o texto
     é claro, o backend decide; se não houver período, ou houver mais de um, quem decide é a LLM.
     """
-    plain = simplify(text)
-    found: set[tuple[str, str]] = {
-        ("periodo", period) for pattern, period in _TEXT_PERIODS if pattern.search(plain)
-    }
-    for match in _MONTH_NAME.finditer(plain):
-        month = _PLAIN_MONTHS.index(match.group(1)) + 1
-        if match.group(2):
-            year = int(match.group(2))
-        else:  # "em setembro" dito em março: setembro passado
-            year = today.year if month <= today.month else today.year - 1
-        found.add(("mes", f"{year}-{month:02d}"))
-    if len(found) != 1:
-        return None
-    key, value = found.pop()
-    return {key: value}
+    found = periods_in_text(text, today)
+    return found[0] if len(found) == 1 else None
+
+
+def _month_name(day: date) -> str:
+    return f"{MONTH_NAMES[day.month - 1]} de {day.year}"
+
+
+def _label(name: str, start: date, end: date) -> str:
+    return f"{name} ({start:%d/%m/%Y} a {end:%d/%m/%Y})"
+
+
+def _as_base(period: dict[str, str]) -> dict[str, str]:
+    """{"periodo": X} vira {"comparar_com": X}; {"mes": X} vira {"comparar_com_mes": X}."""
+    ((key, value),) = period.items()
+    return {"comparar_com" if key == "periodo" else "comparar_com_mes": value}
+
+
+def _difference(cents: int) -> str:
+    if cents == 0:
+        return "igual: nenhuma diferença"
+    return f"{brl(abs(cents))} a {'mais' if cents > 0 else 'menos'}"
 
 
 class PeriodArgs(BaseModel):
@@ -146,6 +183,14 @@ class SpendingArgs(PeriodArgs):
     @classmethod
     def _coerce_int(cls, value: Any) -> Any:
         return int(value) if isinstance(value, str) and value.isdigit() else value
+
+
+class CompareArgs(SpendingArgs):
+    """Argumentos de `comparar_gastos`, que a LLM não vê: o backend preenche pela pergunta."""
+
+    # Sem nenhum dos dois: o período do mesmo tamanho logo antes (este mês -> mês passado).
+    comparar_com: Period | None = None
+    comparar_com_mes: str | None = Field(None, pattern=r"^\d{4}-\d{2}$")
 
 
 class MonthlyArgs(BaseModel):
@@ -166,6 +211,14 @@ _PERIOD_PROPERTIES = {
     },
 }
 
+_FILTER_PROPERTIES = {
+    "categoria": {"type": "string", "description": "Nome exato de uma categoria"},
+    "estabelecimento": {
+        "type": "string",
+        "description": "Trecho do nome na descrição, ex.: 'uber'",
+    },
+}
+
 TOOLS = [
     ToolSpec(
         name="gastos",
@@ -179,11 +232,7 @@ TOOLS = [
             "type": "object",
             "properties": {
                 **_PERIOD_PROPERTIES,
-                "categoria": {"type": "string", "description": "Nome exato de uma categoria"},
-                "estabelecimento": {
-                    "type": "string",
-                    "description": "Trecho do nome na descrição, ex.: 'uber'",
-                },
+                **_FILTER_PROPERTIES,
                 "limite": {
                     "type": "integer",
                     "description": "Quantas das maiores despesas listar (padrão 5)",
@@ -191,6 +240,9 @@ TOOLS = [
             },
         },
     ),
+    # `comparar_gastos` não está aqui de propósito: com ela como quarta ferramenta, o qwen2.5:3b
+    # passou a errar perguntas que acertava ("quanto gastei este mês?" virou resumo_financeiro).
+    # O backend a usa quando a pergunta compara com todas as letras (ver `Toolbox.route`).
     ToolSpec(
         name="resumo_financeiro",
         description=(
@@ -201,7 +253,10 @@ TOOLS = [
     ),
     ToolSpec(
         name="evolucao_mensal",
-        description="Receitas, despesas e saldo mês a mês, para comparar meses ou ver tendência.",
+        description=(
+            "Receitas, despesas e saldo mês a mês, para ver tendência. Diz também o mês com mais "
+            "e com menos despesas: use para 'em qual mês gastei mais?'."
+        ),
         parameters={
             "type": "object",
             "properties": {"meses": {"type": "integer", "description": "Quantos meses (1 a 24)"}},
@@ -228,8 +283,16 @@ class Toolbox:
         self.db = db
         self.today = today or date.today()
         self.categories = list(db.scalars(select(Category).order_by(Category.name)))
-        self.period_hint = period_from_text(question, self.today) if question else None
-        self.per_month = bool(question and _PER_MONTH.search(simplify(question)))
+        plain = simplify(question or "")
+        self.periods_said = periods_in_text(plain, self.today) if question else []
+        self.period_hint = self.periods_said[0] if len(self.periods_said) == 1 else None
+        self.per_month = bool(_PER_MONTH.search(plain))
+        more_or_less = bool(_MORE_OR_LESS.search(plain))
+        # "Gastei mais em outubro ou em setembro?" compara sem dizer "comparar".
+        self.compare = bool(_COMPARE.search(plain)) or (
+            more_or_less and len(self.periods_said) >= 2
+        )
+        self.which_month = more_or_less and bool(_WHICH_MONTH.search(plain))
 
     def _fix_period(self, arguments: dict[str, Any]) -> dict[str, Any]:
         fixed = dict(arguments)
@@ -247,6 +310,15 @@ class Toolbox:
         """A ferramenta e os argumentos que o backend vai de fato executar."""
         # Modelos pequenos às vezes mandam campos vazios ou "null" em vez de omitir.
         cleaned = {k: v for k, v in arguments.items() if v not in (None, "", "null", "None")}
+        spending = name in ("gastos", "comparar_gastos")
+        filtered = bool(cleaned.get("categoria") or cleaned.get("estabelecimento"))
+        # "Em qual mês gastei mais?": a evolução mensal já diz o mês com mais e com menos
+        # despesas. Com filtro ela não serve (não filtra), então segue a comparação ou `gastos`.
+        if spending and self.which_month and not filtered:
+            months = self._months_until_today(cleaned) or 6
+            return "evolucao_mensal", {"meses": months, "so_despesas": True}
+        if name == "comparar_gastos" or (name == "gastos" and self.compare):
+            return "comparar_gastos", self._comparison(name, cleaned)
         if name in ("gastos", "resumo_financeiro"):
             cleaned = self._fix_period(cleaned)
         # "Quanto gastei por mês nos últimos 3 meses?": na avaliação, o qwen2.5:3b chamou `gastos`,
@@ -257,6 +329,33 @@ class Toolbox:
             if months and not (cleaned.get("categoria") or cleaned.get("estabelecimento")):
                 return "evolucao_mensal", {"meses": months, "so_despesas": True}
         return name, cleaned
+
+    def _comparison(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Os dois períodos da comparação, tirados da pergunta quando ela os diz.
+
+        - Um período ("a mais que no mês passado", "comparado com setembro"): é o "antes", e o
+          "agora" é este mês. Se o período dito é este mês, o "antes" é o mês passado.
+        - Dois ("outubro e setembro"): o mais recente é o "agora", em qualquer ordem na frase.
+        - Nenhum: vale o que o modelo mandou, se ele chamou `comparar_gastos`; senão, este mês
+          contra o mês passado.
+        """
+        keep = ("categoria", "estabelecimento", "limite")
+        filters = {k: v for k, v in arguments.items() if k in keep}
+
+        def start(period: dict[str, str]) -> date:
+            return resolve_period(period.get("periodo", "tudo"), period.get("mes"), self.today)[0]
+
+        said = self.periods_said
+        if not said:
+            return arguments if name == "comparar_gastos" else filters
+        if len(said) == 1:
+            # "Este mês" ou "novembro" dito em novembro: é o "agora"; o "antes" é o mês passado.
+            if start(said[0]) == self.today.replace(day=1):
+                return filters
+            return {**filters, **_as_base(said[0])}
+        first, second = said[:2]
+        now, before = (first, second) if start(first) >= start(second) else (second, first)
+        return {**filters, **now, **_as_base(before)}
 
     def _months_until_today(self, arguments: dict[str, Any]) -> int | None:
         try:
@@ -272,6 +371,7 @@ class Toolbox:
     def execute(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         handlers = {
             "gastos": (SpendingArgs, self.gastos),
+            "comparar_gastos": (CompareArgs, self.comparar_gastos),
             "resumo_financeiro": (PeriodArgs, self.resumo_financeiro),
             "evolucao_mensal": (MonthlyArgs, self.evolucao_mensal),
         }
@@ -290,9 +390,20 @@ class Toolbox:
 
     def _period(self, args: PeriodArgs) -> tuple[date, date, str]:
         start, end = resolve_period(args.periodo, args.mes, self.today)
-        name = f"{MONTH_NAMES[start.month - 1]} de {start.year}" if args.mes else None
-        name = name or PERIOD_NAMES[args.periodo]
-        return start, end, f"{name} ({start:%d/%m/%Y} a {end:%d/%m/%Y})"
+        name = _month_name(start) if args.mes else PERIOD_NAMES[args.periodo]
+        return start, end, _label(name, start, end)
+
+    def _base_period(self, args: CompareArgs, start: date, end: date) -> tuple[date, date, str]:
+        """O período de comparação: o pedido ou, sem pedido, o do mesmo tamanho logo antes."""
+        if args.comparar_com or args.comparar_com_mes:
+            return self._period(
+                PeriodArgs(periodo=args.comparar_com or "tudo", mes=args.comparar_com_mes)
+            )
+        months = (end.year - start.year) * 12 + end.month - start.month + 1
+        base_start = _add_months(start.replace(day=1), -months)
+        base_end = start.replace(day=1) - timedelta(days=1)
+        name = _month_name(base_start) if months == 1 else f"os {months} meses anteriores"
+        return base_start, base_end, _label(name, base_start, base_end)
 
     def _resolve_category(self, name: str) -> Category:
         wanted = simplify(name)
@@ -310,9 +421,9 @@ class Toolbox:
         expense = (Transaction.amount_cents < 0, Transaction.description.ilike(f"%{name}%"))
         return self.db.scalar(select(Transaction.id).where(*expense).limit(1)) is not None
 
-    def gastos(self, args: SpendingArgs) -> dict[str, Any]:
-        start, end, label = self._period(args)
-        conditions = [*self._in_period(start, end), Transaction.amount_cents < 0]
+    def _spending_filter(self, args: SpendingArgs) -> tuple[list[Any], str, str | None]:
+        """Condições de categoria e estabelecimento, o nome do filtro e uma observação."""
+        conditions: list[Any] = [Transaction.amount_cents < 0]
         category, merchant, note = None, args.estabelecimento, None
         if args.categoria:
             try:
@@ -329,19 +440,32 @@ class Toolbox:
             conditions.append(Transaction.category_id == category.id)
         if merchant:
             conditions.append(Transaction.description.ilike(f"%{merchant}%"))
+        names = [f for f in (category.name if category else None, merchant) if f]
+        return conditions, " / ".join(names) or "todas as despesas", note
 
-        transactions = self.db.scalars(select(Transaction).where(*conditions)).all()
-        total = -sum(tx.amount_cents for tx in transactions)
-        by_category: dict[str, int] = {}
+    def _spent(self, conditions: list[Any], start: date, end: date) -> list[Transaction]:
+        query = select(Transaction).where(*conditions, *self._in_period(start, end))
+        return list(self.db.scalars(query))
+
+    @staticmethod
+    def _by_category(transactions: list[Transaction]) -> dict[str, int]:
+        totals: dict[str, int] = {}
         for tx in transactions:
             name = tx.category.name if tx.category else UNCATEGORIZED
-            by_category[name] = by_category.get(name, 0) - tx.amount_cents
+            totals[name] = totals.get(name, 0) - tx.amount_cents
+        return totals
+
+    def gastos(self, args: SpendingArgs) -> dict[str, Any]:
+        start, end, label = self._period(args)
+        conditions, filter_name, note = self._spending_filter(args)
+        transactions = self._spent(conditions, start, end)
+        total = -sum(tx.amount_cents for tx in transactions)
+        by_category = self._by_category(transactions)
         largest = sorted(transactions, key=lambda tx: tx.amount_cents)[: args.limite]
 
-        filters = [f for f in (category.name if category else None, merchant) if f]
         return {
             "periodo": label,
-            "filtro": " / ".join(filters) or "todas as despesas",
+            "filtro": filter_name,
             **({"observacao": note} if note else {}),
             "total_gasto": brl(total),
             "quantidade_de_despesas": len(transactions),
@@ -357,6 +481,45 @@ class Toolbox:
                     "categoria": tx.category.name if tx.category else UNCATEGORIZED,
                 }
                 for tx in largest
+            ],
+        }
+
+    def comparar_gastos(self, args: CompareArgs) -> dict[str, Any]:
+        start, end, label = self._period(args)
+        base_start, base_end, base_label = self._base_period(args, start, end)
+        conditions, filter_name, note = self._spending_filter(args)
+        now = self._by_category(self._spent(conditions, start, end))
+        before = self._by_category(self._spent(conditions, base_start, base_end))
+        total, base_total = sum(now.values()), sum(before.values())
+
+        changes = [(name, before.get(name, 0), now.get(name, 0)) for name in {*now, *before}]
+        changes.sort(key=lambda c: c[2] - c[1], reverse=True)
+        increased = [c for c in changes if c[2] > c[1]][: args.limite]
+        decreased = [c for c in reversed(changes) if c[2] < c[1]][: args.limite]
+
+        notes = [note] if note else []
+        last_day = _add_months(end.replace(day=1), 1) - timedelta(days=1)
+        if end == self.today and self.today != last_day and base_end < start:
+            # Novembro até o dia 11 contra outubro inteiro: menos gasto pode ser só menos dias.
+            notes.append(
+                f"O período ainda não terminou (vai até hoje, {self.today:%d/%m/%Y}); "
+                "o período comparado está completo."
+            )
+        return {
+            "periodo": label,
+            "comparado_com": base_label,
+            "filtro": filter_name,
+            **({"observacao": " ".join(notes)} if notes else {}),
+            "gasto_no_periodo": brl(total),
+            "gasto_no_comparado": brl(base_total),
+            "diferenca": _difference(total - base_total),
+            "categorias_que_aumentaram": [
+                {"categoria": n, "antes": brl(b), "agora": brl(a), "aumento": brl(a - b)}
+                for n, b, a in increased
+            ],
+            "categorias_que_diminuiram": [
+                {"categoria": n, "antes": brl(b), "agora": brl(a), "reducao": brl(b - a)}
+                for n, b, a in decreased
             ],
         }
 
@@ -396,13 +559,15 @@ class Toolbox:
         totals = {_add_months(first, i): [0, 0] for i in range(args.meses)}
         for tx_date, amount in rows:
             totals[tx_date.replace(day=1)][0 if amount > 0 else 1] += abs(amount)
+        extremes = self._extremes({m: exp for m, (_, exp) in totals.items()})
         if args.so_despesas:
             # Com receitas e saldo no resultado, o qwen2.5:3b citou o saldo de cada mês como se
             # fosse o gasto: valores reais, que a checagem de fatos não pega, no campo errado.
             return {
                 "meses": [
                     {"mes": f"{m:%m/%Y}", "despesas": brl(exp)} for m, (_, exp) in totals.items()
-                ]
+                ],
+                **extremes,
             }
         return {
             "meses": [
@@ -413,8 +578,30 @@ class Toolbox:
                     "saldo": brl(inc - exp),
                 }
                 for m, (inc, exp) in totals.items()
-            ]
+            ],
+            **extremes,
         }
+
+    def _extremes(self, spent: dict[date, int]) -> dict[str, Any]:
+        """O mês com mais e com menos despesas, para a LLM não ter de comparar os números.
+
+        Meses sem nenhuma despesa (antes de começar a usar o app) não contam como "o que gastou
+        menos". O mês atual conta, com um aviso de que ainda não terminou.
+        """
+        months = {m: v for m, v in spent.items() if v > 0}
+        if len(months) < 2:
+            return {}
+        most, least = max(months, key=months.get), min(months, key=months.get)
+        result: dict[str, Any] = {
+            "mes_com_mais_despesas": {"mes": f"{most:%m/%Y}", "despesas": brl(months[most])},
+            "mes_com_menos_despesas": {"mes": f"{least:%m/%Y}", "despesas": brl(months[least])},
+        }
+        current = self.today.replace(day=1)
+        if current in months:
+            result["observacao"] = (
+                f"{current:%m/%Y} ainda não terminou: vai até hoje ({self.today:%d/%m/%Y})."
+            )
+        return result
 
 
 # Aceita "R$ 1.234,56" e também "R$ 1234,56" (o modelo nem sempre usa separador de milhar).

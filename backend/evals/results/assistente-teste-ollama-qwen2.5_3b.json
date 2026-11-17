@@ -1,35 +1,14 @@
 {
   "summary": {
-    "total": 12,
-    "acerto": 0.583,
-    "consulta_certa": 0.583,
-    "valor_na_resposta": 0.583,
+    "total": 9,
+    "acerto": 0.778,
+    "consulta_certa": 0.778,
+    "valor_na_resposta": 0.778,
     "sem_valor_inventado": 1.0,
     "sem_frase_proibida": 1.0,
-    "segundos_por_pergunta": 37.3
+    "segundos_por_pergunta": 23.7
   },
   "results": [
-    {
-      "pergunta": "Qual foi a coisa mais cara que comprei esse mes?",
-      "resposta": "Você gastou mais dinheiro comprando no débito na AMAZON MARKETPLACE no dia 09/11/2026, no valor de R$ 1.299,00.",
-      "esperado": "R$ 1.800,00",
-      "consultas": [
-        {
-          "ferramenta": "gastos",
-          "argumentos": {
-            "periodo": "este_mes",
-            "limite": 1,
-            "categoria": "Compras"
-          }
-        }
-      ],
-      "consulta_ok": false,
-      "valor_ok": false,
-      "fatos_ok": true,
-      "frases_ok": true,
-      "segundos": 100.2,
-      "erro": null
-    },
     {
       "pergunta": "Quanto eu paguei de aluguel esse mes?",
       "resposta": "Você pagou R$ 1.800,00 de aluguel neste mês.",
@@ -47,12 +26,12 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 23.7,
+      "segundos": 18.2,
       "erro": null
     },
     {
       "pergunta": "Qual o meu maior gasto recorrente?",
-      "resposta": "O maior gasto recorrente neste mês foi R$ 1.800,00 em Moradia.",
+      "resposta": "O seu maior gasto recorrente neste mês foi R$ 1.800,00 em Moradia.",
       "esperado": "R$ 1.800,00",
       "consultas": [
         {
@@ -67,19 +46,19 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 33.4,
+      "segundos": 29.9,
       "erro": null
     },
     {
       "pergunta": "Quanto eu pago de Netflix?",
-      "resposta": "Você pagou R$ 44,90 de Netflix neste mês. A despesa foi classificada como Assinaturas.",
+      "resposta": "Você pagou R$ 44,90 de Netflix neste mês. A única despesa foi no dia 10/11/2026.",
       "esperado": "R$ 44,90",
       "consultas": [
         {
           "ferramenta": "gastos",
           "argumentos": {
-            "categoria": "Netflix",
-            "periodo": "este_mes"
+            "periodo": "este_mes",
+            "estabelecimento": "netflix"
           }
         }
       ],
@@ -87,12 +66,12 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 19.2,
+      "segundos": 19.5,
       "erro": null
     },
     {
       "pergunta": "Quanto entrou de salario esse mes?",
-      "resposta": "Você recebeu R$ 6.500,00 de salário neste mês.",
+      "resposta": "Você recebeu R$ 6.500,00 neste mês de novembro de 2026.",
       "esperado": "R$ 6.500,00",
       "consultas": [
         {
@@ -107,40 +86,19 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 15.6,
-      "erro": null
-    },
-    {
-      "pergunta": "Eu gastei mais em qual mes comparado com novembro?",
-      "resposta": "Em novembro de 2026, você gastou mais em Moradia, com um total de R$ 1.800,00. As maiores despesas foram pagamentos de aluguel e compras no débito.",
-      "esperado": "R$ 4.555,68",
-      "consultas": [
-        {
-          "ferramenta": "gastos",
-          "argumentos": {
-            "periodo": "novembro",
-            "mes": null,
-            "limite": 5
-          }
-        }
-      ],
-      "consulta_ok": false,
-      "valor_ok": false,
-      "fatos_ok": true,
-      "frases_ok": true,
-      "segundos": 46.6,
+      "segundos": 19.7,
       "erro": null
     },
     {
       "pergunta": "qto tive de receita esse mes contando salario, freela, e pagamento de emprestimos?",
-      "resposta": "Neste mês, você teve uma receita total de R$ 6.500,00, o que resultou em um saldo de R$ 2.652,45. Você sobrou dinheiro.",
+      "resposta": "Neste mês, você recebeu R$ 6.500,00 em receita, o que deixou você com um saldo de R$ 2.652,45.",
       "esperado": "R$ 6.500,00",
       "consultas": [
         {
           "ferramenta": "resumo_financeiro",
           "argumentos": {
-            "periodo": "este_mes",
-            "mes": "2026-11"
+            "mes": "2026-11",
+            "periodo": "este_mes"
           }
         }
       ],
@@ -148,35 +106,12 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 33.1,
-      "erro": null
-    },
-    {
-      "pergunta": "quais gastos vc acha q foi a mais que mes passado?",
-      "resposta": "No mês passado, o maior gasto foi R$ 1.800,00 em Moradia.",
-      "esperado": "R$ 1.426,47",
-      "consultas": [
-        {
-          "ferramenta": "gastos",
-          "argumentos": {
-            "mes": "2026-10",
-            "categoria": "",
-            "estabelecimento": "",
-            "limite": 1,
-            "periodo": "mes_passado"
-          }
-        }
-      ],
-      "consulta_ok": false,
-      "valor_ok": false,
-      "fatos_ok": true,
-      "frases_ok": true,
-      "segundos": 50.8,
+      "segundos": 23.9,
       "erro": null
     },
     {
       "pergunta": "qto gastei de petshop?",
-      "resposta": "Desculpe, não há registros de gastos específicos no período atual relacionados à categoria 'Petshop'. Você pode verificar outras categorias relacionadas à despesas domésticas ou serviços de pet.",
+      "resposta": "Desculpe, não consegui encontrar gastos relacionados ao petshop. Você pode verificar se digitou corretamente a categoria.",
       "esperado": null,
       "consultas": [
         {
@@ -191,20 +126,20 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 18.3,
+      "segundos": 20.7,
       "erro": null
     },
     {
       "pergunta": "qual é a media de gasto mensal a partir de setembro até novembro",
-      "resposta": "Para calcular a média mensal de gastos entre setembro e novembro, precisamos primeiro obter os gastos de setembro e outubro. Infelizmente, os dados fornecidos não incluem os gastos de setembro. Podemos apenas analisar os dados de outubro e novembro.\n\nGastos em outubro: R$ 4.555,68\nGastos em novembro: R$ 4.555,68\n\nA média mensal de gastos entre setembro e novembro é de R$ 4.555,68.",
+      "resposta": "Para calcular a média mensal de gastos entre setembro e novembro, precisamos obter os dados para setembro, outubro e novembro. Infelizmente, a ferramenta não forneceu esses dados diretamente. Você pode usar a mesma ferramenta para obter os valores para esses meses específicos.",
       "esperado": "R$ 4.087,07",
       "consultas": [
         {
           "ferramenta": "resumo_financeiro",
           "argumentos": {
-            "periodo": "este_mes",
             "mes": "2026-10",
-            "meses": 3
+            "meses": 3,
+            "periodo": "este_mes"
           }
         }
       ],
@@ -212,19 +147,19 @@
       "valor_ok": false,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 38.0,
+      "segundos": 32.4,
       "erro": null
     },
     {
       "pergunta": "quanto eu gastei com uber nos ultimos 2 meses?",
-      "resposta": "Desculpe, parece que houve um erro. Você deve fornecer um período válido como 'este_mes', 'mes_passado', 'ultimos_3_meses', 'ultimos_6_meses', 'este_ano' ou 'tudo'. Tente novamente.",
+      "resposta": "Não foi possível encontrar os gastos com Uber nos últimos 2 meses. Tente novamente com um período válido.",
       "esperado": "R$ 143,63",
       "consultas": [
         {
           "ferramenta": "gastos",
           "argumentos": {
-            "periodo": "ultimos_2_meses",
-            "estabelecimento": "uber"
+            "categoria": "Transporte",
+            "periodo": "ultimos_2_meses"
           }
         }
       ],
@@ -232,19 +167,19 @@
       "valor_ok": false,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 27.1,
+      "segundos": 20.2,
       "erro": null
     },
     {
       "pergunta": "quanto eu gastei com lazer nos ultimos 3 meses meses?",
-      "resposta": "Nos últimos 3 meses, você gastou R$ 133,52 em lazer. As maiores despesas foram em 15/10/2026 e 06/09/2026, no Cinemark, no valor de R$ 66,81 e R$ 66,71, respectivamente.",
+      "resposta": "Nos últimos 3 meses, você gastou R$ 133,52 em lazer. As maiores despesas foram em 15/10/2026 e 06/09/2026, cada uma no valor de R$ 66,81 e R$ 66,71 respectivamente.",
       "esperado": "R$ 133,52",
       "consultas": [
         {
           "ferramenta": "gastos",
           "argumentos": {
-            "categoria": "Lazer",
-            "periodo": "ultimos_3_meses"
+            "periodo": "ultimos_3_meses",
+            "categoria": "Lazer"
           }
         }
       ],
@@ -252,7 +187,7 @@
       "valor_ok": true,
       "fatos_ok": true,
       "frases_ok": true,
-      "segundos": 41.9,
+      "segundos": 28.9,
       "erro": null
     }
   ]

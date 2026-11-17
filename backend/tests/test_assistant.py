@@ -200,6 +200,99 @@ def test_pergunta_por_mes_devolve_os_meses(db, toolbox):
     assert "saldo" in toolbox.execute("evolucao_mensal", {"meses": 2})["meses"][0]
 
 
+def test_comparar_gastos_calcula_a_diferenca_e_o_que_mudou(toolbox):
+    # Sem período: este mês (até hoje, 20/10) contra o mês passado inteiro.
+    result = toolbox.execute("comparar_gastos", {})
+    assert result["periodo"] == "este mês (01/10/2026 a 20/10/2026)"
+    assert result["comparado_com"] == "setembro de 2026 (01/09/2026 a 30/09/2026)"
+    assert (result["gasto_no_periodo"], result["gasto_no_comparado"]) == ("R$ 2.016,00", "R$ 75,00")
+    assert result["diferenca"] == "R$ 1.941,00 a mais"
+    assert result["categorias_que_aumentaram"][0] == {
+        "categoria": "Moradia",
+        "antes": "R$ 0,00",
+        "agora": "R$ 1.800,00",
+        "aumento": "R$ 1.800,00",
+    }
+    assert "ainda não terminou" in result["observacao"]  # 20 dias contra 30
+
+
+def test_comparar_gastos_com_filtro_e_periodo_escolhido(toolbox):
+    uber = toolbox.execute("comparar_gastos", {"estabelecimento": "uber"})
+    assert uber["diferenca"] == "R$ 7,00 a menos"  # R$ 18,00 contra R$ 25,00
+    assert uber["categorias_que_diminuiram"] == [
+        {"categoria": "Transporte", "antes": "R$ 25,00", "agora": "R$ 18,00", "reducao": "R$ 7,00"}
+    ]
+    assert uber["categorias_que_aumentaram"] == []
+
+    # Meses inteiros: sem aviso de período incompleto. Mesmo valor: "igual".
+    same = toolbox.execute("comparar_gastos", {"mes": "2026-09", "comparar_com_mes": "2026-09"})
+    assert same["diferenca"] == "igual: nenhuma diferença"
+    assert "observacao" not in same
+    # Período maior que um mês: compara com o mesmo número de meses logo antes.
+    three = toolbox.execute("comparar_gastos", {"periodo": "ultimos_3_meses"})
+    assert three["comparado_com"] == "os 3 meses anteriores (01/05/2026 a 31/07/2026)"
+
+
+@pytest.mark.parametrize(
+    ("question", "args", "expected"),
+    [
+        # Visto com o qwen2.5:3b real: comparações respondidas com a consulta de um mês só.
+        ("Gastei mais que no mês passado?", {"periodo": "mes_passado"},
+         ("comparar_gastos", {"comparar_com": "mes_passado"})),
+        ("O que aumentou em relação a setembro?", {},
+         ("comparar_gastos", {"comparar_com_mes": "2026-09"})),
+        # Dois períodos: o mais recente é o "agora", em qualquer ordem na frase.
+        ("Gastei mais em setembro ou em outubro?", {},
+         ("comparar_gastos", {"mes": "2026-10", "comparar_com_mes": "2026-09"})),
+        # O mês citado é o atual (hoje é outubro): ele é o "agora", contra o mês passado.
+        ("Comparado com outubro, gastei menos?", {"mes": "2026-10"}, ("comparar_gastos", {})),
+        ("Gastei mais com Uber que no mês passado?", {"estabelecimento": "uber", "mes": "2026-09"},
+         ("comparar_gastos", {"estabelecimento": "uber", "comparar_com": "mes_passado"})),
+        # Sem período na pergunta, o que o modelo pediu à comparação vale.
+        ("Compare meus gastos", {"mes": "2026-08", "comparar_com_mes": "2026-07"},
+         ("comparar_gastos", {"mes": "2026-08", "comparar_com_mes": "2026-07"})),
+        # "Em qual mês": a evolução mensal já diz o mês com mais e com menos despesas.
+        ("Em qual mês gastei mais?", {"periodo": "este_mes"},
+         ("evolucao_mensal", {"meses": 6, "so_despesas": True})),
+        ("Em que mês gastei menos este ano?", {"periodo": "este_ano"},
+         ("evolucao_mensal", {"meses": 10, "so_despesas": True})),
+        # Com filtro, a evolução mensal não serve (ela não filtra).
+        ("Em qual mês gastei mais com Uber?", {"estabelecimento": "uber"}, ("gastos", None)),
+        # Sem comparação, nada muda.
+        ("Quanto gastei este mês?", {"periodo": "este_mes"}, ("gastos", None)),
+        ("Gastei menos do que em setembro?", {},
+         ("comparar_gastos", {"comparar_com_mes": "2026-09"})),
+        ("Quanto gastei de mais de 100 reais?", {}, ("gastos", None)),
+        ("Gastei mais com o que este mês?", {"periodo": "este_mes"}, ("gastos", None)),
+        # Visto na avaliação: aqui o "que" abre outra frase, não compara. Superlativo, não
+        # comparação: segue em `gastos`.
+        ("Qual foi a coisa mais cara que comprei esse mês?", {"periodo": "este_mes"},
+         ("gastos", None)),
+    ],
+)  # fmt: skip
+def test_pergunta_de_comparacao_vai_para_a_ferramenta_certa(db, toolbox, question, args, expected):
+    called = "comparar_gastos" if question.startswith("Compare") else "gastos"
+    routed = Toolbox(db, today=TODAY, question=question).route(called, args)
+    assert routed[0] == expected[0]
+    if expected[1] is not None:
+        assert routed[1] == expected[1]
+
+
+def test_comparacao_nao_aparece_para_a_llm():
+    # Medido com o qwen2.5:3b real: como quarta ferramenta, ela derrubou o conjunto de
+    # desenvolvimento de 100% para 79% ("quanto gastei este mês?" virou resumo_financeiro).
+    assert [t.name for t in TOOLS] == ["gastos", "resumo_financeiro", "evolucao_mensal"]
+
+
+def test_evolucao_mensal_diz_o_mes_com_mais_e_menos_despesas(toolbox):
+    result = toolbox.execute("evolucao_mensal", {"meses": 3})
+    # Agosto não teve despesa (antes do extrato começar): não é "o mês que gastou menos".
+    assert result["mes_com_mais_despesas"] == {"mes": "10/2026", "despesas": "R$ 2.016,00"}
+    assert result["mes_com_menos_despesas"] == {"mes": "09/2026", "despesas": "R$ 75,00"}
+    assert "10/2026 ainda não terminou" in result["observacao"]
+    assert "mes_com_mais_despesas" not in toolbox.execute("evolucao_mensal", {"meses": 1})
+
+
 def test_resumo_financeiro(toolbox):
     result = toolbox.execute("resumo_financeiro", {"periodo": "este_mes"})
     assert result["receitas"] == "R$ 6.500,00"

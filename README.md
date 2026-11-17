@@ -83,7 +83,8 @@ separação existe porque misturar as listas derrubou o acerto da IA (veja
 - **Limite de tentativas**: 5 senhas erradas em 15 minutos bloqueiam aquele usuário, e 30 erros
   bloqueiam o IP (quem testa muitos usuários). O bloqueio vale também para o Power BI e para
   usuários que não existem, para não revelar quem existe. O limite por IP é alto de propósito: no
-  Docker, todas as pessoas chegam ao app com o mesmo IP.
+  Docker, todas as pessoas chegam ao app com o mesmo IP. Os erros ficam **no banco**, então o
+  limite vale para todos os processos do servidor e continua valendo depois de um reinício.
 - **Power BI** entra com login *Básico* (o mesmo usuário e senha), já que não guarda cookie.
 - Trocar a senha encerra as sessões abertas em outros aparelhos. Esqueceu a senha?
   `python scripts/usuario.py NOME` (dentro de `backend/`) cria o usuário ou troca a senha;
@@ -185,9 +186,10 @@ Decisões de projeto:
 
 ### Assistente com ferramentas (tool use)
 
-Princípio: **a LLM só escolhe a intenção; o backend faz todo o resto.** Ela recebe três
-ferramentas de leitura (`gastos`, `resumo_financeiro`, `evolucao_mensal`), decide qual chamar e
-com quais filtros, e o backend executa a consulta em SQL e devolve os valores prontos.
+Princípio: **a LLM só escolhe a intenção; o backend faz todo o resto.** Ela recebe quatro
+ferramentas de leitura (`gastos`, `comparar_gastos`, `resumo_financeiro`, `evolucao_mensal`),
+decide qual chamar e com quais filtros, e o backend executa a consulta em SQL e devolve os
+valores prontos.
 
 ```mermaid
 sequenceDiagram
@@ -231,7 +233,8 @@ resultados das ferramentas; se não aparecer, a interface mostra um alerta.
 - O loop do Ollama é testado com um servidor HTTP simulado (`httpx.MockTransport`), sem rede.
 
 **Avaliação do assistente** ([`evals/run_assistant_eval.py`](backend/evals/run_assistant_eval.py)):
-12 perguntas sobre o extrato de exemplo, cada uma com a consulta que a responde. O valor esperado
+15 perguntas sobre o extrato de exemplo (12 escritas para o desenvolvimento e 3 que vieram do
+conjunto de teste, explicado abaixo), cada uma com a consulta que a responde. O valor esperado
 não é escrito à mão: o script roda essa consulta no banco. Para cada resposta, ele confere se a
 consulta foi a certa (filtros equivalentes contam), se o valor aparece no texto, se a checagem de
 fatos não achou valor inventado e se não há frase errada sobre o período.
@@ -241,7 +244,7 @@ cd backend
 python -m evals.run_assistant_eval --provider ollama --model qwen2.5:3b
 ```
 
-Cada correção foi medida sozinha, com o mesmo modelo e as mesmas perguntas:
+Cada correção foi medida sozinha, com o mesmo modelo e as mesmas 12 perguntas:
 
 | `qwen2.5:3b` | 1ª medição | + Netflix | + período por extenso | + gasto por mês |
 |---|---|---|---|---|
@@ -276,14 +279,14 @@ Os 3 erros da primeira medição, e o que cada um ensinou:
 A avaliação refaz cada consulta do modelo como o app a executou, com essas correções; o
 relatório guarda os argumentos que o modelo mandou.
 
-> **Os 100% não são a nota do assistente.** As 12 perguntas acima foram escritas por quem
-> desenvolveu o assistente e usadas para corrigir cada erro: é o conjunto de *desenvolvimento*.
+> **Os números do desenvolvimento não são a nota do assistente.** Essas perguntas foram usadas
+> para corrigir cada erro. A nota é a do conjunto de teste, abaixo.
 
 **Conjunto de teste** ([`evals/assistente-teste.json`](backend/evals/assistente-teste.json)):
-12 perguntas escritas pela dona do projeto, do jeito que ela digitaria no celular ("qto tive de
-receita esse mes..."), sem ver as de desenvolvimento, e rodadas **uma vez**, depois de todas as
-correções. Elas nunca são usadas para ajustar o assistente; se uma correção nascer de um erro
-delas, a pergunta passa para o conjunto de desenvolvimento.
+perguntas escritas pela dona do projeto, do jeito que ela digitaria no celular ("qto tive de
+receita esse mes..."), sem ver as de desenvolvimento. Elas nunca são usadas para ajustar o
+assistente; **se uma correção nascer de um erro delas, a pergunta passa para o conjunto de
+desenvolvimento**. Por isso o conjunto começou com 12 perguntas e hoje tem 9.
 
 Algumas perguntas não têm um valor pronto em nenhuma ferramenta ("últimos 2 meses", "média de
 setembro a novembro"). Para elas, o esperado é a **soma ou a média de várias consultas**, e a
@@ -293,32 +296,71 @@ consulta do modelo conta como certa se trouxer o valor sozinha ou junto com as o
 python -m evals.run_assistant_eval --provider ollama --model qwen2.5:3b --conjunto teste
 ```
 
-| `qwen2.5:3b` | Desenvolvimento (12) | **Teste (12)** |
+Na primeira rodada, o teste deu **58%** (7 de 12) contra 100% no desenvolvimento. Essa diferença
+é o motivo de existir um conjunto de teste. O erro mais claro foi a **comparação entre meses (2
+de 2 erradas)**: "em qual mês gastei mais, comparado com novembro?" e "quais gastos foram a mais
+que no mês passado?". O modelo consultava um mês só, porque nenhuma ferramenta comparava
+períodos e um modelo de 3B não faz duas consultas e uma conta.
+
+#### Comparação entre períodos: a correção que nasceu do teste
+
+- **`comparar_gastos`**: compara dois períodos e devolve os totais, a diferença ("R$ 708,13 a
+  menos") e as categorias que aumentaram e diminuíram, já calculadas. Avisa quando o período
+  ainda não terminou (11 dias de novembro contra outubro inteiro).
+- **`evolucao_mensal`** passou a dizer o mês com mais e com menos despesas. Meses sem nenhum
+  movimento (antes de começar a usar o app) não contam como "o mês que gastou menos".
+- O backend reconhece a comparação pela pergunta ("a mais que no mês passado", "comparado com
+  setembro", "em outubro ou em setembro?", "em qual mês gastei mais?") e escolhe os dois
+  períodos: o citado é o "antes", ou o mais recente é o "agora" quando a pergunta cita dois.
+- As duas perguntas de comparação passaram para o conjunto de desenvolvimento.
+
+**Uma ferramenta a mais não é de graça.** A primeira versão dava `comparar_gastos` à LLM como
+quarta ferramenta. As comparações saíram certas, mas o resto piorou:
+
+| `qwen2.5:3b` | Desenvolvimento | Teste (mesmas perguntas) |
 |---|---|---|
-| **Respostas totalmente certas** | 100% | **58%** (7 de 12) |
-| Consulta certa | 100% | 58% |
-| Valor certo na resposta | 100% | 58% |
+| Antes da comparação | 100% (12 de 12) | 7 de 10 |
+| `comparar_gastos` visível para a LLM | **79%** (11 de 14) | **4 de 10** |
+| `comparar_gastos` só pelo backend | **100%** (14 de 14) | **7 de 10** |
+
+Com quatro ferramentas, o modelo passou a chamar `resumo_financeiro` para "quanto gastei este
+mês?" e a escolher categorias erradas para Netflix e aluguel. Não era falta de contexto: o
+prompt tinha 1.431 tokens, e o resultado foi o mesmo com `num_ctx` de 8.192. Era a ferramenta a
+mais. A decisão veio do conjunto de desenvolvimento, e o de teste confirmou: a comparação ficou
+só com o backend, e a LLM continua vendo as mesmas três ferramentas. Um teste garante isso.
+
+A segunda rodada mostrou outro erro, este no código: "a coisa mais cara **que** comprei esse
+mês" virava comparação, porque o padrão aceitava qualquer "mais ... que". Agora, depois do "que"
+precisa vir um período ("que no mês passado"). Como a correção nasceu de uma pergunta do teste,
+ela também passou para o desenvolvimento, onde continua errada por outro motivo: o modelo
+entende "comprei" como a categoria *Compras* e responde a Amazon (R$ 1.299,00), não o aluguel
+(R$ 1.800,00).
+
+**Resultado atual:**
+
+| `qwen2.5:3b` | Desenvolvimento (15) | **Teste (9)** |
+|---|---|---|
+| **Respostas totalmente certas** | 93% (14 de 15) | **78%** (7 de 9) |
+| Consulta certa | 93% | 78% |
+| Valor certo na resposta | 93% | 78% |
 | Sem valor inventado | 100% | 100% |
 | Sem frase errada sobre o período | 100% | 100% |
 
-A diferença entre 100% e 58% é o motivo de existir um conjunto de teste. Os 5 erros:
-- **Comparação entre meses (2 de 2 erradas)**: "em qual mês gastei mais, comparado com
-  novembro?" e "quais gastos foram a mais que no mês passado?". O modelo consultou um mês só.
-  Nenhuma ferramenta compara períodos, e o modelo de 3B não faz duas consultas para comparar:
-  é um limite real, que o conjunto de desenvolvimento não mostrava.
-- **"Qual foi a coisa mais cara que comprei esse mês?"**: o modelo entendeu "comprei" como a
-  categoria *Compras* e respondeu a Amazon (R$ 1.299,00), não o aluguel (R$ 1.800,00). O rótulo
-  é discutível (ninguém "compra" o aluguel), mas não foi trocado depois de ver o resultado.
-- **"Quanto gastei com Uber nos últimos 2 meses?"**: o modelo inventou o período
-  `ultimos_2_meses`, que não existe, e respondeu com a mensagem de erro em vez de consultar mês a
-  mês. "Últimos 3 meses", que existe pronto, deu certo.
-- **"Média de gasto mensal de setembro até novembro"**: o modelo pediu o resumo de um mês só,
-  disse que não havia setembro e deu como média o gasto de um mês. A checagem de fatos não pega
-  esse erro, porque o valor citado existe no resultado: só a métrica de valor certo mostra.
+O teste subiu de 58% para 78% **porque as perguntas que erravam saíram dele**, não porque o
+assistente melhorou nelas: nas mesmas 9 perguntas, a versão anterior também acertava 7. O que o
+número mostra é que nada piorou. Os 2 erros que sobram:
 
-Não houve nenhum valor inventado nem frase errada sobre o período. O petshop, que não existe no
-extrato, foi respondido sem inventar valor. Com 12 perguntas, cada uma vale 8 pontos: o número
-é uma indicação, não uma medida precisa.
+- **"Quanto gastei com Uber nos últimos 2 meses?"**: o modelo inventa o período
+  `ultimos_2_meses`, que não existe, e responde com a mensagem de erro. "Últimos 3 meses", que
+  existe pronto, dá certo.
+- **"Média de gasto mensal de setembro até novembro"**: o modelo pede o resumo de um período só e
+  não chega à média. A checagem de fatos não pega esse tipo de erro quando o valor citado existe
+  no resultado: só a métrica de valor certo mostra.
+
+Não houve nenhum valor inventado nem frase errada sobre o período, e o petshop, que não existe
+no extrato, foi respondido sem inventar valor. Com 9 perguntas, cada uma vale 11 pontos: o
+número é uma indicação, não uma medida precisa. O próximo passo é escrever perguntas novas, de
+preferência por outra pessoa.
 
 ### Lançamento por texto
 
@@ -488,7 +530,7 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 223 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest          # 243 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
 pytest --cov    # o mesmo, com a cobertura do código (88%; o CI falha abaixo de 85%)
 ruff check .
 
@@ -556,8 +598,8 @@ frontend/src/
 - [x] Assistente: nome de loja usado como categoria ("Netflix") deve virar busca por estabelecimento
 - [x] Assistente: frase "no último mês" em pergunta de 3 meses
 - [x] Assistente: "quanto gastei por mês" deve usar a evolução mensal
-- [x] Conjunto separado de perguntas de teste para o assistente (58% com `qwen2.5:3b`)
-- [ ] Assistente: comparar períodos ("gastei mais que no mês passado?"), o erro do conjunto de teste
+- [x] Conjunto separado de perguntas de teste para o assistente (78% em 9 perguntas com `qwen2.5:3b`)
+- [x] Assistente: comparar períodos ("gastei mais que no mês passado?"), o erro do conjunto de teste
 - [x] Segundo conjunto rotulado, separado, só para teste (evita ajustar o prompt para a prova)
 - [ ] Aumentar o conjunto de teste e pedir a outra pessoa para rotular parte dele
 - [ ] Comparar modelos menores (`qwen2.5:1.5b`) e maiores com a mesma avaliação
@@ -569,4 +611,5 @@ frontend/src/
 - [x] Login com múltiplos usuários, cada um com os próprios dados
 - [ ] Compartilhar um organizador entre pessoas (ex.: sócios da mesma empresa)
 - [x] Limite de tentativas de login e conta administradora
-- [ ] Guardar as tentativas de login no banco ou no Redis, para valer com vários processos do servidor
+- [x] Guardar as tentativas de login no banco, para valer com vários processos do servidor
+- [ ] Filas em segundo plano fora da memória (ex.: Redis + RQ), para rodar vários processos

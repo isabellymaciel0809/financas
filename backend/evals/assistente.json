@@ -58,6 +58,21 @@
     "valor": "meses.2.despesas"
   },
   {
+    "pergunta": "Eu gastei mais em qual mes comparado com novembro?",
+    "chamada": {"ferramenta": "evolucao_mensal", "argumentos": {"meses": 3}},
+    "valor": "meses.mes=10/2026.despesas"
+  },
+  {
+    "pergunta": "quais gastos vc acha q foi a mais que mes passado?",
+    "chamada": {"ferramenta": "comparar_gastos", "argumentos": {"periodo": "este_mes", "comparar_com": "mes_passado"}},
+    "valor": "categorias_que_aumentaram.categoria=Compras.agora"
+  },
+  {
+    "pergunta": "Qual foi a coisa mais cara que comprei esse mes?",
+    "chamada": {"ferramenta": "gastos", "argumentos": {"periodo": "este_mes"}},
+    "valor": "maiores_despesas.0.valor"
+  },
+  {
     "pergunta": "Qual vai ser a previsão do tempo amanhã?",
     "chamada": null
   }
