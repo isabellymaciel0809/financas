@@ -2,8 +2,8 @@
 
 Numa CPU sem GPU, um modelo local leva alguns segundos por estabelecimento. Em vez de prender a
 importação, ela responde na hora com memória e regras, e este job manda as pendentes para a LLM
-depois. Um lock garante um job por vez; se novas pendentes chegarem durante a execução, o job
-roda de novo ao terminar.
+depois. Um job por vez (app/services/serial.py); se novas pendentes chegarem durante a
+execução, o job roda de novo ao terminar.
 
 Limitação consciente: o estado fica em memória, então vale para um único processo do servidor
 (o caso deste app). Com vários workers, o caminho seria uma fila (ex.: Redis + RQ/Celery).
@@ -23,7 +23,8 @@ from app.models import CategorizedBy, Expense, ExpenseStatus, Transaction
 from app.services.categorizer.llm import LLMProvider
 from app.services.categorizer.pipeline import categorize_transactions
 from app.services.fiscal.processor import expense_queue
-from app.tenancy import user_session
+from app.services.serial import SerialRunner
+from app.tenancy import current_user_id, user_session
 
 logger = logging.getLogger(__name__)
 
@@ -36,47 +37,49 @@ class JobStatus:
     last_error: str | None
 
 
+@dataclass
+class LastRun:
+    """O que a última execução fez com as transações de um usuário."""
+
+    categorized: int = 0
+    error: str | None = None
+
+
 class CategorizationJob:
     def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._rerun = False
-        self.running = False
-        self.last_categorized = 0
-        self.last_error: str | None = None
+        self._runner = SerialRunner()
+        # Por dono: cada um vê quantas das *suas* transações a IA categorizou, não as dos outros.
+        self._results: dict[int | None, LastRun] = {}
 
     def run(self, provider: LLMProvider | None, batch_size: int) -> None:
         if provider is None:
             return
-        if not self._lock.acquire(blocking=False):
-            self._rerun = True  # já tem um job rodando: ele pega as novas pendentes no fim
-            return
-        try:
-            self.running = True
-            self.last_categorized, self.last_error = 0, None
-            while True:
-                self._rerun = False
-                # Uma rodada por dono: a memória e as categorias usadas são as de cada usuário.
-                for owner in self._owners_with_pending():
-                    with user_session(owner) as db:
-                        pending = db.scalars(
-                            select(Transaction).where(
-                                Transaction.categorized_by == CategorizedBy.none
-                            )
-                        ).all()
-                        outcome = categorize_transactions(db, pending, provider, batch_size)
-                        db.commit()
-                        self.last_categorized += outcome.stats.llm
-                        self.last_error = outcome.llm_error
-                    if self.last_error:
-                        break
-                if not self._rerun or self.last_error:
-                    break
-        except Exception:
-            logger.exception("Falha no job de categorização")
-            self.last_error = "Erro inesperado ao categorizar em segundo plano."
-        finally:
-            self.running = False
-            self._lock.release()
+        seen: set[int | None] = set()  # donos já atendidos nesta execução (soma as rodadas)
+        self._runner.trigger(lambda: self._round(provider, batch_size, seen))
+
+    def _round(self, provider: LLMProvider, batch_size: int, seen: set[int | None]) -> bool:
+        # Uma passada por dono: a memória e as categorias usadas são as de cada usuário.
+        for owner in self._owners_with_pending():
+            try:
+                with user_session(owner) as db:
+                    pending = db.scalars(
+                        select(Transaction).where(Transaction.categorized_by == CategorizedBy.none)
+                    ).all()
+                    outcome = categorize_transactions(db, pending, provider, batch_size)
+                    before = self._results[owner].categorized if owner in seen else 0
+                    seen.add(owner)
+                    # Antes do commit: quando a tela vir as pendentes zerarem, o total já está aqui.
+                    self._results[owner] = LastRun(before + outcome.stats.llm, outcome.llm_error)
+                    db.commit()
+            except Exception:
+                logger.exception("Falha no job de categorização")
+                self._results[owner] = LastRun(
+                    error="Erro inesperado ao categorizar em segundo plano."
+                )
+                return False
+            if outcome.llm_error:
+                return False  # LLM fora do ar: os outros donos também falhariam
+        return True
 
     @staticmethod
     def _owners_with_pending() -> list[int | None]:
@@ -90,13 +93,26 @@ class CategorizationJob:
             )
 
     def status(self, db: Session) -> JobStatus:
-        """`db` é a sessão do usuário logado: as pendentes contadas são só as dele."""
-        pending = db.scalar(
-            select(func.count(Transaction.id)).where(
-                Transaction.categorized_by == CategorizedBy.none
+        """Situação do usuário logado (`db` é a sessão dele): só as pendentes e o resultado dele.
+
+        "Rodando" só para quem tem pendentes: senão a tela de quem não importou nada veria o job
+        de outra pessoa terminar e avisaria "IA categorizou" com um resultado antigo.
+        """
+        pending = (
+            db.scalar(
+                select(func.count(Transaction.id)).where(
+                    Transaction.categorized_by == CategorizedBy.none
+                )
             )
+            or 0
         )
-        return JobStatus(self.running, pending or 0, self.last_categorized, self.last_error)
+        last = self._results.get(current_user_id(db), LastRun())
+        running = self._runner.running and pending > 0
+        return JobStatus(running, pending, last.categorized, last.error)
+
+    def reset(self) -> None:
+        """Esquece os resultados (os testes começam do zero, como o `login_limiter`)."""
+        self._results.clear()
 
 
 categorization_job = CategorizationJob()

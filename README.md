@@ -73,7 +73,8 @@ separação existe porque misturar as listas derrubou o acerto da IA (veja
 - O isolamento é **central** ([`app/tenancy.py`](backend/app/tenancy.py)): toda consulta de uma
   sessão logada recebe `user_id = X` automaticamente (eventos do SQLAlchemy), e toda linha nova
   recebe o dono. Assim, uma rota nova não "esquece" de filtrar. As filas em segundo plano
-  (leitura de notas, LLM) processam cada arquivo em nome do dono dele.
+  (leitura de notas, LLM) processam cada arquivo em nome do dono dele, e cada pessoa só vê o
+  andamento e o resultado da fila para os próprios arquivos.
 - Usuário e senha em todas as rotas de dados. Senhas com **scrypt** e sal; a sessão é um cookie
   `HttpOnly` e `SameSite=Lax`, e o banco guarda só o hash do token.
 - **Primeiro acesso**: sem nenhum usuário, a tela pede para criar a conta, e o que já estava no
@@ -487,7 +488,8 @@ Variáveis de ambiente (ou `backend/.env`, veja [`backend/.env.example`](backend
 
 ```bash
 cd backend
-pytest          # 216 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest          # 223 testes: notas e cupons, planilha, itens, login, isolamento, migrações, IA
+pytest --cov    # o mesmo, com a cobertura do código (88%; o CI falha abaixo de 85%)
 ruff check .
 
 cd frontend

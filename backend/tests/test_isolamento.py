@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from app.main import app
 from app.models import Transaction
+from tests.test_api import _upload
 from tests.test_fiscal import make_key, make_nfe_xml
 
 
@@ -133,6 +134,21 @@ def test_correcao_de_categoria_vira_memoria_so_de_quem_corrigiu(two_users, db):
 
     assert ifood_categories(ana) == {"Lazer"}
     assert ifood_categories(beto) == {"Alimentação"}  # a correção da Ana não mexe no Beto
+
+
+def test_resultado_da_ia_em_segundo_plano_e_de_cada_um(two_users, fake_llm):
+    ana, beto = two_users
+    fake_llm.answers = {"maria": ("Transferências", 0.8)}
+    assert _upload(ana).json()["llm_queued"] == 3
+
+    def status(client):
+        body = client.get("/api/transactions/categorize/status").json()
+        return body["running"], body["pending"], body["last_categorized"], body["last_error"]
+
+    # O TestClient roda a categorização antes de responder. O Beto não importou nada: não vê a
+    # contagem da Ana, senão a tela dele avisaria "a IA categorizou 1" sem ele ter feito nada.
+    assert status(ana) == (False, 2, 1, None)
+    assert status(beto) == (False, 0, 0, None)
 
 
 def test_power_bi_de_cada_um(two_users):

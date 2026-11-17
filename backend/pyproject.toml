@@ -8,6 +8,18 @@ requires-python = ">=3.12"
 testpaths = ["tests"]
 pythonpath = ["."]
 
+# Cobertura: `pytest --cov` (o CI roda assim). Conta também os desvios de cada if/else.
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+# Piso, não meta: abaixo disso o CI falha. As partes menos cobertas são as que dependem de
+# serviços reais (OCR de foto, HTTP do Ollama/Claude), testadas à mão e na avaliação.
+fail_under = 85
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

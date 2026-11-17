@@ -16,6 +16,7 @@ from app.deps import get_llm_provider  # noqa: E402
 from app.login_limit import login_limiter  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
+from app.services.background import categorization_job  # noqa: E402
 from app.services.categorizer.llm import (  # noqa: E402
     CategoryOption,
     ChatResult,
@@ -102,11 +103,13 @@ def db():
 
 
 @pytest.fixture(autouse=True)
-def _limite_de_login_zerado():
-    """O limite de tentativas fica em memória: cada teste começa sem erros contados."""
+def _estado_em_memoria_zerado():
+    """O limite de tentativas e o resultado da IA ficam em memória: cada teste começa do zero."""
     login_limiter.reset()
+    categorization_job.reset()
     yield
     login_limiter.reset()
+    categorization_job.reset()
 
 
 @pytest.fixture

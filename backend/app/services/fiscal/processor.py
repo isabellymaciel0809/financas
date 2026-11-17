@@ -5,7 +5,6 @@ leva minutos, e quem envia não precisa esperar na tela.
 """
 
 import logging
-import threading
 import time
 from pathlib import Path
 
@@ -22,6 +21,7 @@ from app.services.fiscal.keys import only_digits
 from app.services.fiscal.nfe_xml import NFeParseError, parse_nfe_xml
 from app.services.fiscal.photo import PhotoReadError, read_photo
 from app.services.fiscal.validation import validate
+from app.services.serial import SerialRunner
 from app.tenancy import user_session
 
 logger = logging.getLogger(__name__)
@@ -150,25 +150,14 @@ class ExpenseQueue:
     """Fila serial: um documento por vez (OCR e LLM disputam a mesma CPU)."""
 
     def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._rerun = False
-        self.running = False
+        self._runner = SerialRunner()
 
     def run(self, provider: LLMProvider | None) -> None:
-        if not self._lock.acquire(blocking=False):
-            self._rerun = True
-            return
-        try:
-            self.running = True
-            while True:
-                self._rerun = False
-                while (next_up := self._next()) is not None:
-                    self._process_one(*next_up, provider)
-                if not self._rerun:
-                    break
-        finally:
-            self.running = False
-            self._lock.release()
+        self._runner.trigger(lambda: self._drain(provider))
+
+    def _drain(self, provider: LLMProvider | None) -> None:
+        while (next_up := self._next()) is not None:
+            self._process_one(*next_up, provider)
 
     def _next(self) -> tuple[int, int | None] | None:
         """Próximo arquivo da fila (de qualquer usuário) e o dono dele."""
@@ -208,6 +197,15 @@ class ExpenseQueue:
             )
             or 0
         )
+
+    def status(self, db: Session) -> tuple[bool, int]:
+        """(rodando, arquivos na fila) do usuário logado.
+
+        "Rodando" só para quem tem arquivo na fila: ler as fotos de outra pessoa não é assunto
+        de quem não enviou nada.
+        """
+        processing = self.processing_count(db)
+        return self._runner.running and processing > 0, processing
 
 
 expense_queue = ExpenseQueue()
